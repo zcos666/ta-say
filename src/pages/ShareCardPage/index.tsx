@@ -1,0 +1,231 @@
+import { useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { toPng } from "html-to-image";
+import ShareCard from "../../components/share/ShareCard";
+import { useSessionStore } from "../../app/store/sessionStore";
+import { shareCardComposer } from "../../features/share-card";
+
+const pageStyles = {
+  shell: {
+    minHeight: "100vh",
+    padding: "40px 20px 56px",
+    background:
+      "radial-gradient(circle at top, rgba(120, 37, 37, 0.28), transparent 28%), #050505",
+    color: "#f5f5f5",
+    fontFamily:
+      '"Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+  } satisfies CSSProperties,
+  container: {
+    width: "100%",
+    maxWidth: "1120px",
+    margin: "0 auto",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 320px) minmax(0, 540px)",
+    justifyContent: "space-between",
+    alignItems: "start",
+    gap: "32px",
+  } satisfies CSSProperties,
+  intro: {
+    display: "grid",
+    gap: "20px",
+    paddingTop: "24px",
+  } satisfies CSSProperties,
+  eyebrow: {
+    margin: 0,
+    color: "#8f8f8f",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    fontSize: "12px",
+  } satisfies CSSProperties,
+  title: {
+    margin: 0,
+    fontSize: "48px",
+    lineHeight: 1.05,
+    letterSpacing: "-0.04em",
+  } satisfies CSSProperties,
+  description: {
+    margin: 0,
+    color: "#b7b7b7",
+    fontSize: "16px",
+    lineHeight: 1.7,
+  } satisfies CSSProperties,
+  status: {
+    margin: 0,
+    padding: "14px 16px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#d6d6d6",
+    fontSize: "14px",
+    lineHeight: 1.6,
+  } satisfies CSSProperties,
+  buttonRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "12px",
+  } satisfies CSSProperties,
+  primaryButton: {
+    border: 0,
+    borderRadius: "999px",
+    padding: "14px 20px",
+    background: "#f3f3f3",
+    color: "#080808",
+    fontSize: "15px",
+    fontWeight: 700,
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  secondaryButton: {
+    borderRadius: "999px",
+    padding: "14px 20px",
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: "transparent",
+    color: "#f3f3f3",
+    fontSize: "15px",
+    fontWeight: 600,
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  } satisfies CSSProperties,
+  noteList: {
+    margin: 0,
+    paddingLeft: "18px",
+    color: "#909090",
+    lineHeight: 1.8,
+  } satisfies CSSProperties,
+  previewWrap: {
+    display: "grid",
+    justifyItems: "center",
+  } satisfies CSSProperties,
+} as const;
+
+function createFileName(endingType: string) {
+  const time = new Date().toISOString().slice(0, 10);
+  return `ta-say-share-card-${endingType}-${time}.png`;
+}
+
+export function ShareCardPage() {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [exportState, setExportState] = useState<"idle" | "exporting" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const session = {
+    chatHistory: useSessionStore((state) => state.chatHistory),
+    deletedDraftCount: useSessionStore((state) => state.deletedDraftCount),
+    deletedDrafts: useSessionStore((state) => state.deletedDrafts),
+    endingType: useSessionStore((state) => state.endingType),
+    fearType: useSessionStore((state) => state.fearType),
+    hasFinishedGame: useSessionStore((state) => state.hasFinishedGame),
+    hardestSentence: useSessionStore((state) => state.hardestSentence),
+    loadCount: useSessionStore((state) => state.loadCount),
+    pollutionCount: useSessionStore((state) => state.pollutionCount),
+    shareCardData: useSessionStore((state) => state.shareCardData),
+    translatorReport: useSessionStore((state) => state.translatorReport),
+    triggeredKeywords: useSessionStore((state) => state.triggeredKeywords),
+  };
+
+  const cardData = useMemo(() => shareCardComposer({ session }), [session]);
+
+  const statusText = useMemo(() => {
+    if (exportState === "exporting") {
+      return "正在导出分享卡图片...";
+    }
+
+    if (exportState === "success") {
+      return "图片已生成并开始下载。";
+    }
+
+    if (exportState === "error") {
+      return errorMessage || "导出失败，请稍后重试。";
+    }
+
+    return cardData.hasFinishedGame
+      ? "当前展示的是完整通关报告，可直接导出传播。"
+      : "当前为进行中报告，继续体验后可获得更完整的分享卡。";
+  }, [cardData.hasFinishedGame, errorMessage, exportState]);
+
+  const handleExport = async () => {
+    if (!cardRef.current) {
+      setExportState("error");
+      setErrorMessage("未找到可导出的卡片节点。");
+      return;
+    }
+
+    try {
+      setExportState("exporting");
+      setErrorMessage("");
+
+      if ("fonts" in document) {
+        await document.fonts.ready;
+      }
+
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        backgroundColor: "#080808",
+        pixelRatio: 2,
+      });
+
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = createFileName(cardData.endingType);
+      link.click();
+
+      setExportState("success");
+    } catch (error) {
+      setExportState("error");
+      setErrorMessage(error instanceof Error ? error.message : "导出分享卡时发生未知错误。");
+    }
+  };
+
+  const buttonStyle =
+    exportState === "exporting"
+      ? { ...pageStyles.primaryButton, ...pageStyles.buttonDisabled }
+      : pageStyles.primaryButton;
+
+  return (
+    <main style={pageStyles.shell}>
+      <div style={pageStyles.container}>
+        <section style={pageStyles.intro}>
+          <p style={pageStyles.eyebrow}>Share Card Export</p>
+          <h1 style={pageStyles.title}>把这张关系幻觉报告带走。</h1>
+          <p style={pageStyles.description}>
+            页面会基于当前会话状态、翻译结果和本地 fallback 组装分享卡预览。预览与导出使用同一张卡片节点，避免视觉不一致。
+          </p>
+          <p style={pageStyles.status}>{statusText}</p>
+          <div style={pageStyles.buttonRow}>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exportState === "exporting"}
+              style={buttonStyle}
+            >
+              {exportState === "exporting" ? "正在导出..." : "导出 PNG"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setExportState("idle");
+                setErrorMessage("");
+              }}
+              style={pageStyles.secondaryButton}
+            >
+              重置状态
+            </button>
+          </div>
+          <ul style={pageStyles.noteList}>
+            <li>展示字段包含结局名、最大嘴硬句、AI 翻译、统计数据与最后一句话。</li>
+            <li>若缺少分享卡缓存或接口返回，页面会使用本地规则自动补齐内容。</li>
+            <li>导出基于 `html-to-image` 生成 PNG，适合继续接入页面路由或完整流程联调。</li>
+          </ul>
+        </section>
+
+        <section style={pageStyles.previewWrap} aria-label="分享卡预览">
+          <ShareCard ref={cardRef} data={cardData} />
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export default ShareCardPage;
