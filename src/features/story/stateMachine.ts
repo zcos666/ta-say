@@ -16,6 +16,10 @@ export function deriveNextStage({
   events = [],
   enterMetaBreak = false
 }: StageTransitionInput): StoryStage {
+  if (events.includes("location_ping")) {
+    return "location_reveal";
+  }
+
   if (enterMetaBreak) {
     return "meta_break";
   }

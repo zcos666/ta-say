@@ -9,6 +9,8 @@ export type StoryStage =
   | "time_pollution"
   | "save_loaded_once"
   | "save_loaded_twice"
+  | "location_reveal"
+  | "location_aftermath"
   | "meta_break"
   | "truth_reveal"
   | "wake_up"
@@ -23,5 +25,6 @@ export type StoryEvent =
   | "load_warning"
   | "load_failed"
   | "space_glitch"
-  | "exit_blocked";
+  | "exit_blocked"
+  | "location_ping";
 export const ENTRANCE_STAGE: StoryStage = "translator_unlocked";

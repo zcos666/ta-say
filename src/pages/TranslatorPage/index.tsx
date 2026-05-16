@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useSessionStore } from "../../app/store/sessionStore";
+import { useAppStore } from "../../app/store/useAppStore";
 import TranslationReportCard from "../../components/share/TranslationReportCard";
 import { defaultMockChat } from "../../config/fallbacks";
 import {
@@ -20,9 +20,8 @@ const pageStyles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: "40px 20px 64px",
-    background:
-      "radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 32%), #020617",
-    color: "#e2e8f0",
+    background: "linear-gradient(180deg, rgba(149, 236, 105, 0.08), transparent 240px), #dfe7df",
+    color: "#1f1f1f",
   },
   shell: {
     width: "min(1120px, 100%)",
@@ -36,7 +35,7 @@ const pageStyles: Record<string, CSSProperties> = {
   },
   eyebrow: {
     margin: 0,
-    color: "#f9a8d4",
+    color: "#4f9f33",
     fontSize: 13,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
@@ -49,7 +48,7 @@ const pageStyles: Record<string, CSSProperties> = {
   description: {
     margin: 0,
     maxWidth: 720,
-    color: "#cbd5e1",
+    color: "#5f6660",
     fontSize: 16,
     lineHeight: 1.7,
   },
@@ -62,10 +61,10 @@ const pageStyles: Record<string, CSSProperties> = {
     display: "grid",
     gap: 18,
     padding: 20,
-    borderRadius: 24,
-    background: "rgba(15, 23, 42, 0.86)",
-    border: "1px solid rgba(148, 163, 184, 0.16)",
-    boxShadow: "0 20px 48px rgba(2, 6, 23, 0.3)",
+    borderRadius: 20,
+    background: "rgba(255, 255, 255, 0.98)",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    boxShadow: "0 14px 36px rgba(31, 31, 31, 0.08)",
   },
   field: {
     display: "grid",
@@ -74,21 +73,21 @@ const pageStyles: Record<string, CSSProperties> = {
   label: {
     fontSize: 14,
     fontWeight: 600,
-    color: "#f8fafc",
+    color: "#1f1f1f",
   },
   hint: {
     margin: 0,
     fontSize: 13,
     lineHeight: 1.6,
-    color: "#94a3b8",
+    color: "#868f86",
   },
   textarea: {
     minHeight: 180,
     resize: "vertical",
-    borderRadius: 18,
-    border: "1px solid rgba(148, 163, 184, 0.22)",
-    background: "rgba(15, 23, 42, 0.72)",
-    color: "#f8fafc",
+    borderRadius: 14,
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "#ffffff",
+    color: "#1f1f1f",
     padding: 16,
     fontSize: 15,
     lineHeight: 1.7,
@@ -102,38 +101,38 @@ const pageStyles: Record<string, CSSProperties> = {
   pill: {
     padding: "10px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(148, 163, 184, 0.22)",
-    background: "rgba(15, 23, 42, 0.72)",
-    color: "#cbd5e1",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "#f6f8f6",
+    color: "#5f6660",
     cursor: "pointer",
   },
   pillActive: {
-    background: "rgba(236, 72, 153, 0.18)",
-    color: "#fbcfe8",
-    border: "1px solid rgba(244, 114, 182, 0.32)",
+    background: "rgba(231, 248, 221, 0.96)",
+    color: "#17320b",
+    border: "1px solid rgba(149, 236, 105, 0.58)",
   },
   select: {
     width: "100%",
-    borderRadius: 16,
-    border: "1px solid rgba(148, 163, 184, 0.22)",
-    background: "rgba(15, 23, 42, 0.72)",
-    color: "#f8fafc",
+    borderRadius: 14,
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "#ffffff",
+    color: "#1f1f1f",
     padding: "12px 14px",
     fontSize: 15,
   },
   status: {
     padding: "12px 14px",
-    borderRadius: 16,
-    background: "rgba(56, 189, 248, 0.12)",
-    color: "#bae6fd",
+    borderRadius: 14,
+    background: "rgba(231, 248, 221, 0.96)",
+    color: "#356d22",
     fontSize: 13,
     lineHeight: 1.6,
   },
   error: {
     padding: "12px 14px",
-    borderRadius: 16,
-    background: "rgba(248, 113, 113, 0.12)",
-    color: "#fecaca",
+    borderRadius: 14,
+    background: "rgba(255, 241, 241, 0.96)",
+    color: "#bf5d5d",
     fontSize: 13,
     lineHeight: 1.6,
   },
@@ -144,29 +143,29 @@ const pageStyles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     padding: "12px 18px",
-    borderRadius: 16,
+    borderRadius: 12,
     border: "none",
-    background: "linear-gradient(135deg, #ec4899, #8b5cf6)",
-    color: "#fff",
+    background: "#95ec69",
+    color: "#17320b",
     fontSize: 15,
     fontWeight: 600,
     cursor: "pointer",
   },
   secondaryButton: {
     padding: "12px 18px",
-    borderRadius: 16,
-    border: "1px solid rgba(148, 163, 184, 0.22)",
-    background: "rgba(15, 23, 42, 0.72)",
-    color: "#e2e8f0",
+    borderRadius: 12,
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "#f6f8f6",
+    color: "#1f1f1f",
     fontSize: 15,
     cursor: "pointer",
   },
   tertiaryButton: {
     padding: "12px 18px",
-    borderRadius: 16,
-    border: "1px dashed rgba(244, 114, 182, 0.32)",
-    background: "rgba(76, 29, 149, 0.16)",
-    color: "#f5d0fe",
+    borderRadius: 12,
+    border: "1px dashed rgba(149, 236, 105, 0.52)",
+    background: "rgba(231, 248, 221, 0.72)",
+    color: "#356d22",
     fontSize: 15,
     cursor: "pointer",
   },
@@ -186,19 +185,19 @@ function getInitialChatText(hardestSentence: string) {
 }
 
 export default function TranslatorPage() {
-  const fearType = useSessionStore((state) => state.fearType);
-  const taPronoun = useSessionStore((state) => state.taPronoun);
-  const hardestSentence = useSessionStore((state) => state.hardestSentence);
-  const endingType = useSessionStore((state) => state.endingType);
-  const pollutionCount = useSessionStore((state) => state.pollutionCount);
-  const deletedDraftCount = useSessionStore((state) => state.deletedDraftCount);
-  const loadCount = useSessionStore((state) => state.loadCount);
-  const hasFinishedGame = useSessionStore((state) => state.hasFinishedGame);
-  const translatorReport = useSessionStore((state) => state.translatorReport);
-  const shareCardData = useSessionStore((state) => state.shareCardData);
-  const patchSession = useSessionStore((state) => state.patchSession);
-  const saveTranslatorReport = useSessionStore((state) => state.saveTranslatorReport);
-  const saveShareCardData = useSessionStore((state) => state.saveShareCardData);
+  const fearType = useAppStore((state) => state.session.fearType);
+  const taPronoun = useAppStore((state) => state.session.taPronoun);
+  const hardestSentence = useAppStore((state) => state.session.hardestSentence);
+  const endingType = useAppStore((state) => state.session.endingType);
+  const pollutionCount = useAppStore((state) => state.session.pollutionCount);
+  const deletedDraftCount = useAppStore((state) => state.session.deletedDraftCount);
+  const loadCount = useAppStore((state) => state.session.loadCount);
+  const hasFinishedGame = useAppStore((state) => state.session.hasFinishedGame);
+  const translatorReport = useAppStore((state) => state.session.translatorReport);
+  const shareCardData = useAppStore((state) => state.session.shareCardData);
+  const patchSession = useAppStore((state) => state.patchSession);
+  const saveTranslatorReport = useAppStore((state) => state.saveTranslatorReport);
+  const saveShareCardData = useAppStore((state) => state.saveShareCardData);
 
   const [chatText, setChatText] = useState(() => getInitialChatText(hardestSentence));
   const [submitting, setSubmitting] = useState(false);

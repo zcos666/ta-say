@@ -2,21 +2,22 @@ import { create } from "zustand";
 import { captureDeletedDraft } from "../../features/drafts/draftMonitor";
 import { buildPollutionResult } from "../../features/pollution/pollutionEngine";
 import { buildReply } from "../../features/reply/replyEngine";
+import { draftCopy, rollbackCopy, storyCopy, uiCopy } from "../../config/hardcodedCopy";
 import {
-  createAutoSaveSnapshot,
-  getLoadButtonLabel,
-  restoreFromAutoSave
+  createSnapshotFromMessage,
+  restoreFromMessage
 } from "../../features/save-load/saveLoadManager";
 import { resolveEndingType } from "../../features/story/endingResolver";
-import { getFearFallbackCopy } from "../../features/story/stageConfig";
 import { deriveNextStage } from "../../features/story/stateMachine";
 import { evaluateTriggers } from "../../features/story/triggerEngine";
 import { storageRepository } from "../../services/storage/storageRepository";
+import type { LoveTranslationReport } from "../../types/api";
 import {
   createChatMessage,
   createEmptySession,
   type PersistedState,
-  type SessionState
+  type SessionState,
+  type ShareCardData
 } from "../../types/session";
 import type { FearType, StoryEvent, TaPronoun } from "../../types/story";
 
@@ -32,8 +33,15 @@ function withPersistentFields(session: SessionState, persisted: PersistedState):
   };
 }
 
-function syncPersistentState(session: SessionState, overrides: Partial<PersistedState> = {}) {
+function hydrateSessionFromStorage(): SessionState {
+  const persisted = storageRepository.read();
+  const storedSession = storageRepository.readSession(createEmptySession());
+  return withPersistentFields(storedSession, persisted);
+}
+
+function persistSession(session: SessionState, overrides: Partial<PersistedState> = {}) {
   const current = storageRepository.read();
+  storageRepository.writeSession(session);
   storageRepository.write({
     ...current,
     ...overrides,
@@ -47,22 +55,22 @@ function syncPersistentState(session: SessionState, overrides: Partial<Persisted
 
 function createExitLabel(exitClickCount: number): string {
   if (exitClickCount >= 2) {
-    return "已经来不及了";
+    return uiCopy.exitLabels.locked;
   }
 
   if (exitClickCount >= 1) {
-    return "别留我一个";
+    return uiCopy.exitLabels.warned;
   }
 
-  return "退出";
+  return uiCopy.exitLabels.default;
 }
 
 function createSpaceLabel(spaceVisitCount: number): string {
   if (spaceVisitCount >= 2) {
-    return "你的空间";
+    return uiCopy.spaceLabels.late;
   }
 
-  return "空间";
+  return uiCopy.spaceLabels.default;
 }
 
 interface AppStore {
@@ -71,22 +79,52 @@ interface AppStore {
   session: SessionState;
   hydrate: () => void;
   selectSetup: (fearType: FearType, taPronoun: TaPronoun) => Promise<void>;
-  updateDraft: (previousValue: string, nextValue: string) => void;
+  updateDraft: (
+    previousValue: string,
+    nextValue: string,
+    options?: { isDeleting?: boolean; isComposing?: boolean }
+  ) => void;
   sendMessage: (input: string) => Promise<void>;
-  loadGame: () => Promise<void>;
+  rollbackToMessage: (messageId: string) => void;
+  completeLocationReveal: () => void;
+  revealLocationLie: () => void;
   visitSpace: () => void;
   exitAttempt: () => Promise<void>;
   enterTruthReveal: () => void;
   completeTruth: () => void;
   finishWakeUp: () => void;
   resetForReplay: () => void;
-  getLoadLabel: () => string;
+  patchSession: (patch: Partial<SessionState>) => void;
+  saveTranslatorReport: (report: LoveTranslationReport) => void;
+  saveShareCardData: (data: ShareCardData) => void;
   getExitLabel: () => string;
   getSpaceLabel: () => string;
 }
 
-function createTaMessages(lines: string[], kind: "normal" | "warning" | "glitch") {
-  return lines.map((line) => createChatMessage("ta", line, { kind }));
+function getRandomTaLineDelayMs() {
+  return 1000 + Math.floor(Math.random() * 2001);
+}
+
+async function waitForTaLineDelay() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, getRandomTaLineDelayMs());
+  });
+}
+
+function createIntroSpaceNotice(pronoun: TaPronoun | null) {
+  return createChatMessage("system", storyCopy.introSpaceNotice(pronoun), {
+    kind: "space_notice"
+  });
+}
+
+function createLocationNotice() {
+  return createChatMessage("system", storyCopy.locationNotice, {
+    kind: "location_notice"
+  });
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -94,11 +132,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isReplying: false,
   session: createEmptySession(),
 
+  // no-op placeholder to satisfy method ordering in returned object
+
   hydrate: () => {
-    const persisted = storageRepository.read();
     set({
       hydrated: true,
-      session: withPersistentFields(createEmptySession(), persisted)
+      session: hydrateSessionFromStorage()
     });
   },
 
@@ -110,21 +149,44 @@ export const useAppStore = create<AppStore>((set, get) => ({
     nextSession.stage = "intro";
     nextSession.chatHistory = [];
     set({ session: nextSession, isReplying: true });
+    persistSession(nextSession);
 
     const replyLines = await buildReply({
       session: nextSession
     });
 
+    for (let index = 0; index < replyLines.length; index += 1) {
+      const line = replyLines[index];
+      const streamedSession = {
+        ...get().session,
+        chatHistory: [...get().session.chatHistory, createChatMessage("ta", line, { kind: "normal" })]
+      };
+
+      set({ session: streamedSession });
+      persistSession(streamedSession);
+
+      if (index < replyLines.length - 1) {
+        await waitForTaLineDelay();
+      }
+    }
+
+    const finalSession = {
+      ...get().session,
+      chatHistory: [...get().session.chatHistory, createIntroSpaceNotice(taPronoun)]
+    };
+
     set({
-      session: {
-        ...nextSession,
-        chatHistory: [...nextSession.chatHistory, ...createTaMessages(replyLines, "normal")]
-      },
+      session: finalSession,
       isReplying: false
     });
+    persistSession(finalSession);
   },
 
-  updateDraft: (previousValue, nextValue) => {
+  updateDraft: (previousValue, nextValue, options = {}) => {
+    if (options.isComposing || !options.isDeleting) {
+      return;
+    }
+
     const deletedDraft = captureDeletedDraft(previousValue, nextValue);
 
     if (!deletedDraft) {
@@ -138,10 +200,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       const nextSession = {
         ...state.session,
+        stage: "draft_exposed" as const,
+        chatHistory: [
+          ...state.session.chatHistory,
+          createChatMessage(
+            "ta",
+            draftCopy.buildImmediateReply(deletedDraft),
+            { kind: "glitch" }
+          )
+        ],
         deletedDrafts: [...state.session.deletedDrafts, deletedDraft],
-        deletedDraftCount: state.session.deletedDraftCount + 1
+        deletedDraftCount: state.session.deletedDraftCount + 1,
+        metaMemory: [...state.session.metaMemory, draftCopy.buildMetaMemory(deletedDraft)]
       };
 
+      persistSession(nextSession);
       return { session: nextSession };
     });
   },
@@ -159,21 +232,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     const session = get().session;
     const nextSendCount = session.sendCount + 1;
-    const persisted = storageRepository.read();
-
-    if (!persisted.autoSaveSnapshot && nextSendCount === 3) {
-      storageRepository.patch({
-        autoSaveSnapshot: createAutoSaveSnapshot(session)
-      });
-    }
 
     const triggerEvaluation = evaluateTriggers(session, userInput, nextSendCount);
     const pollution = buildPollutionResult({
       userInput,
       stage: session.stage,
-      fearType: session.fearType,
+      pollutionCount: session.pollutionCount,
+      sendCount: nextSendCount,
       triggerReason: triggerEvaluation.triggerReason,
-      keyword: triggerEvaluation.keyword
+      keyword: triggerEvaluation.keyword,
+      events: triggerEvaluation.events
     });
     const events = [...triggerEvaluation.events];
     const userMessage = createChatMessage(
@@ -206,6 +274,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
           : session.triggeredKeywords,
       pollutionCount: pollution ? session.pollutionCount + 1 : session.pollutionCount,
       sendCount: nextSendCount,
+      forcedPollutionRemaining:
+        nextSendCount === 3
+          ? 4
+          : pollution && session.forcedPollutionRemaining > 0
+            ? Math.max(0, session.forcedPollutionRemaining - 1)
+            : session.forcedPollutionRemaining,
       activeTimedPollution: triggerEvaluation.startTimedWindow || session.activeTimedPollution,
       metaMemory:
         pollution && pollution.triggerReason === "count"
@@ -224,7 +298,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         createChatMessage(
           "system",
           `输入框刚刚替你记住了：${
-            session.deletedDrafts[session.deletedDrafts.length - 1] ?? getFearFallbackCopy(session.fearType)
+            session.deletedDrafts[session.deletedDrafts.length - 1] ?? "你刚刚那句没发出来的话。"
           }`,
           { kind: "warning" }
         )
@@ -238,18 +312,37 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     if (triggerEvaluation.startTimedWindow && typeof window !== "undefined") {
       timedPollutionTimer = window.setTimeout(() => {
-        set((current) => ({
-          session: {
+        set((current) => {
+          const timedSession = {
             ...current.session,
             activeTimedPollution: false,
             stage: current.session.stage === "time_pollution" ? "normal_chat" : current.session.stage
-          }
-        }));
+          };
+          persistSession(timedSession);
+          return {
+            session: timedSession
+          };
+        });
       }, 30000);
     }
 
     set({ session: nextSession, isReplying: true });
-    syncPersistentState(nextSession);
+    persistSession(nextSession);
+
+    if (triggerEvaluation.events.includes("location_ping")) {
+      const finalSession = {
+        ...nextSession,
+        chatHistory: [
+          ...nextSession.chatHistory,
+          createLocationNotice()
+        ],
+        metaMemory: [...nextSession.metaMemory, "第二十次对话后，最后一句被改成了“你在哪？”。"]
+      };
+
+      set({ session: finalSession, isReplying: false });
+      persistSession(finalSession);
+      return;
+    }
 
     const replyLines = await buildReply({
       session: nextSession,
@@ -259,65 +352,108 @@ export const useAppStore = create<AppStore>((set, get) => ({
       events
     });
 
-    const finalSession = {
-      ...nextSession,
-      chatHistory: [
-        ...nextSession.chatHistory,
-        ...createTaMessages(replyLines, pollution ? "glitch" : "normal")
-      ]
-    };
+    for (let index = 0; index < replyLines.length; index += 1) {
+      const line = replyLines[index];
+      const streamedSession = {
+        ...get().session,
+        chatHistory: [
+          ...get().session.chatHistory,
+          createChatMessage("ta", line, { kind: pollution ? "glitch" : "normal" })
+        ]
+      };
 
-    set({ session: finalSession, isReplying: false });
-    syncPersistentState(finalSession);
+      set({ session: streamedSession });
+      persistSession(streamedSession);
+
+      if (index < replyLines.length - 1) {
+        await waitForTaLineDelay();
+      }
+    }
+
+    set({ session: get().session, isReplying: false });
   },
 
-  loadGame: async () => {
+  rollbackToMessage: (messageId) => {
     if (get().isReplying) {
       return;
     }
 
     const session = get().session;
-    const persisted = storageRepository.read();
-    const result = restoreFromAutoSave(session, persisted);
-    set({
-      session: result.nextSession,
-      isReplying: result.kind === "restored" || result.kind === "warning" || result.kind === "failed"
-    });
-    storageRepository.write(result.nextPersistedState);
-
-    if (result.kind === "empty") {
-      set({ isReplying: false });
-      return;
+    if (session.loadCount >= 3) {
+      throw new Error(rollbackCopy.limitError);
     }
+    const persisted = storageRepository.read();
+    const snapshot = createSnapshotFromMessage(session, messageId);
+    const result = restoreFromMessage(session, persisted, snapshot);
+    set({ session: result.nextSession, isReplying: true });
+    storageRepository.write(result.nextPersistedState);
+    persistSession(result.nextSession);
 
-    const events: StoryEvent[] =
-      result.kind === "failed"
-        ? ["load_failed"]
-        : result.kind === "warning"
-          ? ["load_warning"]
-          : ["load_restored"];
-    const replyLines = await buildReply({
-      session: result.nextSession,
-      events
+    void (async () => {
+      for (let index = 0; index < result.replyLines.length; index += 1) {
+        const line = result.replyLines[index];
+        const streamedSession = {
+          ...get().session,
+          chatHistory: [
+            ...get().session.chatHistory,
+            createChatMessage("ta", line, { kind: result.replyKind ?? "warning" })
+          ]
+        };
+
+        set({ session: streamedSession });
+        persistSession(streamedSession);
+
+        if (index < result.replyLines.length - 1) {
+          await waitForTaLineDelay();
+        }
+      }
+
+      set({ session: get().session, isReplying: false });
+    })();
+  },
+
+  completeLocationReveal: () => {
+    set((state) => {
+      const nextSession = {
+        ...state.session,
+        stage: "location_aftermath" as const,
+        chatHistory: [
+          ...state.session.chatHistory,
+          createChatMessage("ta", storyCopy.locationRevealLine, { kind: "glitch" })
+        ],
+        metaMemory: [...state.session.metaMemory, "看完定位图后，TA 让你回头。"]
+      };
+
+      persistSession(nextSession);
+      return { session: nextSession };
     });
-    const finalSession = {
-      ...result.nextSession,
-      chatHistory: [
-        ...result.nextSession.chatHistory,
-        ...createTaMessages(replyLines, result.kind === "restored" ? "warning" : "glitch")
-      ]
-    };
+  },
 
-    set({ session: finalSession, isReplying: false });
+  revealLocationLie: () => {
+    set((state) => {
+      if (state.session.metaMemory.includes("定位结尾第二句已触发。")) {
+        return state;
+      }
+
+      const nextSession = {
+        ...state.session,
+        chatHistory: [
+          ...state.session.chatHistory,
+          createChatMessage("ta", storyCopy.locationRevealLieLine, { kind: "glitch" })
+        ],
+        metaMemory: [...state.session.metaMemory, "定位结尾第二句已触发。"]
+      };
+
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
   },
 
   visitSpace: () => {
     set((state) => {
       const nextCount = state.session.spaceVisitCount + 1;
-      const nextStage = nextCount >= 3 ? "meta_break" : state.session.stage;
       const nextSession = {
         ...state.session,
-        stage: nextStage,
         spaceVisitCount: nextCount,
         metaMemory:
           nextCount >= 2
@@ -325,7 +461,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             : state.session.metaMemory
       };
 
-      syncPersistentState(nextSession);
+      persistSession(nextSession);
       return { session: nextSession };
     });
   },
@@ -337,15 +473,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     const session = get().session;
     const nextCount = session.exitClickCount + 1;
-    const shouldBreak = nextCount >= 3;
     const nextSession = {
       ...session,
       exitClickCount: nextCount,
-      stage: shouldBreak ? "meta_break" : session.stage,
       metaMemory: nextCount >= 2 ? [...session.metaMemory, "退出按钮也开始参与叙事。"] : session.metaMemory
     };
 
-    syncPersistentState(nextSession);
+    persistSession(nextSession);
     set({ session: nextSession, isReplying: true });
 
     const replyLines = await buildReply({
@@ -353,33 +487,52 @@ export const useAppStore = create<AppStore>((set, get) => ({
       originalInput: "我要退出",
       events: ["exit_blocked"]
     });
-    const finalSession = {
-      ...nextSession,
-      chatHistory: [
-        ...nextSession.chatHistory,
-        ...createTaMessages(replyLines, nextCount >= 2 ? "glitch" : "warning")
-      ]
-    };
 
-    set({ session: finalSession, isReplying: false });
+    for (let index = 0; index < replyLines.length; index += 1) {
+      const line = replyLines[index];
+      const streamedSession = {
+        ...get().session,
+        chatHistory: [
+          ...get().session.chatHistory,
+          createChatMessage("ta", line, { kind: nextCount >= 2 ? "glitch" : "warning" })
+        ]
+      };
+
+      set({ session: streamedSession });
+      persistSession(streamedSession);
+
+      if (index < replyLines.length - 1) {
+        await waitForTaLineDelay();
+      }
+    }
+
+    set({ session: get().session, isReplying: false });
   },
 
   enterTruthReveal: () => {
-    set((state) => ({
-      session: {
+    set((state) => {
+      const nextSession = {
         ...state.session,
-        stage: "truth_reveal"
-      }
-    }));
+        stage: "truth_reveal" as const
+      };
+      persistSession(nextSession);
+      return {
+        session: nextSession
+      };
+    });
   },
 
   completeTruth: () => {
-    set((state) => ({
-      session: {
+    set((state) => {
+      const nextSession = {
         ...state.session,
-        stage: "wake_up"
-      }
-    }));
+        stage: "wake_up" as const
+      };
+      persistSession(nextSession);
+      return {
+        session: nextSession
+      };
+    });
   },
 
   finishWakeUp: () => {
@@ -391,7 +544,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         endingType: state.session.endingType ?? resolveEndingType(state.session)
       };
 
-      syncPersistentState(nextSession, { hasFinishedGame: true });
+      persistSession(nextSession, { hasFinishedGame: true });
       return { session: nextSession };
     });
   },
@@ -399,17 +552,57 @@ export const useAppStore = create<AppStore>((set, get) => ({
   resetForReplay: () => {
     const persisted = storageRepository.read();
     set({
-      session: {
+      session: (() => {
+        const nextSession = {
         ...createEmptySession(),
         hasFinishedGame: persisted.hasFinishedGame,
         loadCount: persisted.loadCount,
         metaMemory: [...persisted.metaMemory],
         shareCardData: persisted.shareCardData
-      }
+        };
+        persistSession(nextSession);
+        return nextSession;
+      })()
     });
   },
 
-  getLoadLabel: () => getLoadButtonLabel(get().session.loadCount),
+  patchSession: (patch) => {
+    set((state) => {
+      const nextSession = {
+        ...state.session,
+        ...patch
+      };
+      persistSession(nextSession);
+      if ("shareCardData" in patch && patch.shareCardData) {
+        storageRepository.saveLatestShareCard(patch.shareCardData);
+      }
+      return { session: nextSession };
+    });
+  },
+
+  saveTranslatorReport: (report) => {
+    set((state) => {
+      const nextSession = {
+        ...state.session,
+        translatorReport: report
+      };
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
+  },
+
+  saveShareCardData: (data) => {
+    set((state) => {
+      const nextSession = {
+        ...state.session,
+        shareCardData: data
+      };
+      storageRepository.saveLatestShareCard(data);
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
+  },
+
   getExitLabel: () => createExitLabel(get().session.exitClickCount),
   getSpaceLabel: () => createSpaceLabel(get().session.spaceVisitCount)
 }));

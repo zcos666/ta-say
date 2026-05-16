@@ -22,11 +22,13 @@ export interface TaReplyRequest {
   pollutedInput?: string;
   events: string[];
   loadCount: number;
+  sendCount: number;
+  pollutionCount: number;
   deletedDrafts: string[];
   triggerReason?: string;
-  fearType?: string | null;
   taPronoun?: string | null;
   metaMemory?: string[];
+  desiredReplyLineCount: 1 | 2;
   recentMessages?: Array<{
     role: "user" | "ta" | "system";
     text: string;

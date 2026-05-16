@@ -6,7 +6,7 @@ export interface ChatMessage {
   role: "user" | "ta" | "system";
   originalText?: string;
   displayedText: string;
-  kind?: "normal" | "polluted" | "warning" | "glitch";
+  kind?: "normal" | "polluted" | "warning" | "glitch" | "space_notice" | "location_notice";
   timestamp: number;
 }
 
@@ -34,6 +34,7 @@ export interface SessionState {
   deletedDraftCount: number;
   loadCount: number;
   sendCount: number;
+  forcedPollutionRemaining: number;
   spaceVisitCount: number;
   exitClickCount: number;
   activeTimedPollution: boolean;
@@ -54,6 +55,7 @@ export interface SessionSnapshot {
   triggeredKeywords: string[];
   pollutionCount: number;
   sendCount: number;
+  forcedPollutionRemaining: number;
   activeTimedPollution: boolean;
 }
 export interface PersistedState {
@@ -99,6 +101,7 @@ export function createEmptySession(): SessionState {
     deletedDraftCount: 0,
     loadCount: 0,
     sendCount: 0,
+    forcedPollutionRemaining: 0,
     spaceVisitCount: 0,
     exitClickCount: 0,
     activeTimedPollution: false,
@@ -106,12 +109,4 @@ export function createEmptySession(): SessionState {
     endingType: null,
     hardestSentence: "",
   };
-}
-
-export interface SessionStore extends SessionState {
-  resetSession: () => void;
-  patchSession: (patch: Partial<SessionState>) => void;
-  saveTranslatorReport: (report: LoveTranslationReport) => void;
-  saveShareCardData: (data: ShareCardData) => void;
-  unlockTranslator: () => void;
 }

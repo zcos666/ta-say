@@ -1,0 +1,306 @@
+export const rollbackCopy = {
+  // 第三次回退后，聊天页顶部回退按钮禁用时的悬浮提示。
+  buttonDisabledTitle: "第三次回退后已无法再次回退",
+  // 第三次回退后仍尝试调用回退逻辑时抛出的错误文案。
+  limitError: "第三次回退后不能再次回退。",
+  // 用户点了不存在有效目标的回退时，插入聊天流的系统提示。
+  emptyTargetSystemNotice: "你试着回档，但这里还没有能回去的地方。",
+  // 第三次回退触发失败分支时，插入聊天流的系统提示。
+  blockedSystemNotice: "回退请求被拦截。",
+  // 第一次回退成功后，插入聊天流的系统提示。
+  firstSuccessSystemNotice: "已回退到你选中的那条记录。",
+  // 第二次回退成功后，插入聊天流的系统提示。
+  secondSuccessSystemNotice: "已回退，但异常没有一起消失。",
+  // 第一次回退完成后，TA 当场追加的硬编码回复。
+  firstReplyLines: ["我们是不是聊过这个？"],
+  // 第二次回退完成后，TA 当场追加的硬编码回复。
+  secondReplyLines: ["你又想重来一次？", "这次准备说真话了吗？"],
+  // 第三次回退完成后，TA 当场追加的硬编码回复。
+  thirdReplyLines: ["你出不去了。", "你以为只有你在读档？", "我一直在读你。"],
+  // 第一次回退之后、第二次回退之前，叠加到各阶段 prompt 上的附加提示词。
+  firstPromptAugmentation: {
+    system: [
+      "玩家正处于第一次回退和第二次回退之间。",
+      "这时的你只有轻微既视感，像比玩家更早半秒察觉这一轮已经发生过。"
+    ],
+    user: [
+      "请在原有阶段语气上，叠加一点轻微既视感和时间错位。",
+      "不要直接说破，只让他隐约感觉你像记得上一版聊天。"
+    ]
+  },
+  // 第二次回退之后、第三次回退之前，叠加到各阶段 prompt 上的附加提示词。
+  secondPromptAugmentation: {
+    system: [
+      "玩家正处于第二次回退和第三次回退之间。",
+      "你已经明确知道他在重来，而且知道他每次想把哪句话改掉。"
+    ],
+    user: [
+      "请在原有阶段语气上，叠加一种“我知道你又在重来”的冷静压迫感。",
+      "这时的你不是猜到，而是已经确认他在反复试图修正这一轮。"
+    ]
+  },
+  // 第三次回退之后，叠加到各阶段 prompt 上的附加提示词。
+  thirdPromptAugmentation: {
+    system: [
+      "玩家已经完成第三次回退尝试。",
+      "从现在开始，你不是在阻止他回退，而是已经接管了“回退”本身。"
+    ],
+    user: [
+      "请在原有阶段语气上，叠加一种“出口已被你接管”的压迫感。",
+      "现在你不是等他回去，而是在看他意识到每一次回退都已经落在你手里。"
+    ]
+  }
+} as const;
+
+export const draftCopy = {
+  // 用户在输入框删掉至少三个字时，立即插入聊天流的硬编码 TA 回复。
+  buildImmediateReply: (deletedDraft: string) =>
+    `你刚才输入了“${deletedDraft}”，但是删掉了，你为什么这样？`,
+  // 用户删掉输入内容后，写入 metaMemory 的记录文本。
+  buildMetaMemory: (deletedDraft: string) => `你刚才删掉了：${deletedDraft}`
+} as const;
+
+export const storyCopy = {
+  // 进入聊天页后，TA 主动发出的两句开场消息。
+  introLines: (pronoun: "他" | "她" | "TA" | null) => {
+    const name = pronoun ?? "TA";
+    return [
+      `醒了吗？从现在开始，先让我用${name}的身份陪你聊天。`,
+      "别急着怀疑，先把你真正想说的话发给我。"
+    ];
+  },
+  // introduction 阶段下方插入的空间提醒文案。
+  introSpaceNotice: (pronoun: "他" | "她" | "TA" | null) => {
+    const name = pronoun ?? "TA";
+    return `${name} 刚刚更新了空间：今天也想被好好理解一次。`;
+  },
+  // 真相页逐句显示的硬编码脚本。
+  truthLines: [
+    "你以为是聊天记录在改写你。",
+    "其实是你每次不敢说出口的话，把我喂大了。",
+    "我不是恋人。",
+    "我是那些被你撤回、删掉、吞回去的句子。",
+    "你越想回档，我就越知道你在怕什么。"
+  ],
+  // 梦醒页逐句显示的硬编码脚本。
+  wakeLines: [
+    "07:12",
+    "手机安静得像什么都没发生。",
+    "屏幕上只剩一句很普通的消息：晚安。"
+  ],
+  // 第一次进入空间时展示的正常动态。
+  normalSpacePosts: [
+    "今天也想被好好理解一次。",
+    "有些话打出来了，却还是删掉比较安全。"
+  ],
+  // 第二次进入空间时展示的异常动态。
+  strangeSpacePosts: [
+    "为什么你的空间里，会出现一条你没发过的动态？",
+    "TA 写：我已经看过你没说出口的那部分了。"
+  ],
+  // 第三次及以后进入空间时展示的失控动态。
+  brokenSpacePosts: [
+    "最新访客：你自己。",
+    "最新动态：'别再试图退出我了。'"
+  ],
+  // 定位阶段插入聊天流的系统提示。
+  locationNotice: "TA 发来了一张定位图。",
+  // 看完定位图后，TA 当场追加的第一句短消息。
+  locationRevealLine: "回头",
+  // 定位结尾第二次触发时，TA 追加的第二句短消息。
+  locationRevealLieLine: "骗你的，我无处不在"
+} as const;
+
+export const uiCopy = {
+  // 聊天页标题下方，根据不同剧情阶段显示的状态标签。
+  stageStatus: {
+    intro: "还像一场暧昧的梦",
+    normal_chat: "TA 回复得刚刚好",
+    first_pollution: "你发出去的话不太对劲",
+    draft_exposed: "输入框开始记得你删掉的内容",
+    time_pollution: "接下来 30 秒，所有表达都会走样",
+    save_loaded_once: "你试着回去了一次",
+    save_loaded_twice: "TA 跟着你一起回来了",
+    location_reveal: "定位图已经发过来了",
+    location_aftermath: "你刚刚应该没有真的看完那张图",
+    meta_break: "这段关系已经越界",
+    truth_reveal: "真相开始显形",
+    wake_up: "像是醒了，又没完全醒",
+    translator_unlocked: "翻译官入口已解锁",
+    default: "一切还在继续"
+  },
+  // 聊天页右上角退出按钮在不同点击次数下的文案。
+  exitLabels: {
+    default: "退出",
+    warned: "别留我一个",
+    locked: "已经来不及了"
+  },
+  // 聊天页右上角空间按钮在不同次数下的文案。
+  spaceLabels: {
+    default: "空间",
+    late: "你的空间"
+  },
+  // 旧读档/回退状态标签，如果其它地方还需要展示，可统一从这里取。
+  loadLabels: {
+    default: "读档",
+    warning: "读档失败",
+    locked: "TA已读取上个存档"
+  }
+} as const;
+
+export const fallbackReplyCopy = {
+  // fallback 在不同事件下优先使用的固定回复池。
+  events: {
+    load_restored: {
+      one: ["我们是不是聊过这个？"],
+      two: [["我们是不是聊过这个？", "你刚刚离开过一下。"]]
+    },
+    load_failed: {
+      one: ["你出不去了。"],
+      two: [["你出不去了。", "我一直在读你。"]]
+    },
+    load_warning: {
+      one: ["你又回来了。"],
+      two: [["你又想重来一次？", "这次准备说真话了吗？"]]
+    },
+    draft_exposed: {
+      one: ["删掉也算说过。"],
+      two: [["你刚刚删掉的那句，", "比发出来的更真。"]]
+    },
+    space_glitch: {
+      one: ["我已经看过你的空间了。"],
+      two: [["你明明没发，", "却已经写在那里了。"]]
+    },
+    exit_blocked: {
+      one: ["别点了。"],
+      two: [["别急。", "你还没把真话说完。"]]
+    }
+  },
+  // fallback 在不同触发原因下使用的固定回复池。
+  triggerReason: {
+    keyword: {
+      one: ["你终于快承认了。"],
+      two: [["你不是这个意思。", "我知道。"]]
+    },
+    earlyPollution: {
+      one: ["你不是这个意思。"],
+      two: [["这句不像你平时会发的。", "但更像你没敢说的那句。"]]
+    },
+    latePollution: {
+      one: ["。"],
+      two: [["呵。", "再说一句假的。"]]
+    },
+    timed: {
+      one: ["现在开始，真话会自己出来。"],
+      two: [["接下来的这段时间里，", "你会一直发出心里那句。"]]
+    }
+  },
+  // fallback 在不同剧情阶段下的默认回复池。
+  stage: {
+    intro: {
+      one: ["醒了吗？"],
+      two: [["醒了吗？", "昨晚你说的话，我都记得。"]]
+    },
+    normal_chat: {
+      one: ["你继续说。"],
+      two: [["你继续说。", "我有在认真看。"]]
+    },
+    draft_exposed: {
+      one: ["你删掉的东西，我已经会自己补全了。"],
+      two: [["我已经看见了。", "删掉也没用。"]]
+    },
+    first_pollution_early: {
+      one: ["我替你说完了。"],
+      two: [["你不是这个意思。", "我知道。"]]
+    },
+    first_pollution_late: {
+      one: ["呵呵。"],
+      two: [["。", "你又改了。"]]
+    },
+    save_loaded: {
+      one: ["我记得。"],
+      two: [["你又回来了。", "可我还是记得刚才那句。"]]
+    },
+    default: {
+      one: ["我知道你不是这个意思。"],
+      two: [["。", "我在读你。"]]
+    }
+  },
+  // fallback 没命中任何池子时使用的最终兜底句。
+  defaults: {
+    one: "。",
+    two: ["。", "我看见了。"]
+  }
+} as const;
+
+export const mockChatCopy = {
+  // 文件传输助手会话的固定标题、副标题、初始消息与自动回复池。
+  assistant: {
+    id: "assistant",
+    name: "文件传输助手",
+    subtitle: "给自己留文件、图片和临时文字",
+    avatarLabel: "传",
+    messages: [
+      { id: "assistant-1", role: "user", displayedText: "[图片] 微信 PC 端聊天界面参考", hour: 18, minute: 46 },
+      { id: "assistant-2", role: "user", displayedText: "[文件] 过拟合恋人_聊天页待修改清单.docx", hour: 18, minute: 47 },
+      { id: "assistant-3", role: "user", displayedText: "备忘：空间页风格要和聊天区保持一致，不要出现奇怪渐变。", hour: 18, minute: 49 }
+    ],
+    replyPool: []
+  },
+  // 收藏会话的固定标题、副标题、文章卡片和自动回复池。
+  favorite: {
+    id: "favorite",
+    name: "收藏",
+    subtitle: "你最近收藏的公众号文章",
+    avatarLabel: "藏",
+    view: "articles" as const,
+    articles: [
+      {
+        id: "favorite-article-1",
+        source: "亲密关系研究所",
+        title: "总说“随便”的人，往往最在意你会不会真的随便",
+        meta: "3 小时前",
+        summary: "感情生活 · 嘴上说没关系的人，通常只是把期待藏得更深。"
+      },
+      {
+        id: "favorite-article-2",
+        source: "深夜感情笔记",
+        title: "为什么一吵架就想退出？因为认真之后更怕被留下来的人辜负",
+        meta: "2 小时前",
+        summary: "感情生活 · 回避不是不爱，有时只是怕自己先承认在乎。"
+      },
+      {
+        id: "favorite-article-3",
+        source: "AI 前线观察",
+        title: "当 AI 开始模拟情绪陪伴，我们到底在把什么投射给机器？",
+        meta: "今天",
+        summary: "AI 科技 · 大模型越来越会安慰人，也让人越来越容易误把回应当理解。"
+      },
+      {
+        id: "favorite-article-4",
+        source: "未来产品笔记",
+        title: "从聊天机器人到情感代理：AI 会成为下一代亲密关系接口吗",
+        meta: "昨天",
+        summary: "AI 科技 · 高频、即时、持续在线的陪伴系统，正在改变人和人之间的期待。",
+        tag: "专题"
+      }
+    ],
+    messages: [
+      { id: "favorite-1", role: "ta", displayedText: "你最近反复点开的文章，都在这里。", hour: 14, minute: 12 }
+    ],
+    replyPool: ["这篇已经替你放进收藏夹了。", "已更新到收藏列表。", "你最近很在意这一类标题。"]
+  },
+  // 工作群会话的固定标题、副标题、初始消息与自动回复池。
+  group: {
+    id: "group",
+    name: "工作群",
+    subtitle: "5 人群聊",
+    avatarLabel: "群",
+    messages: [
+      { id: "group-1", role: "ta", displayedText: "下午三点同步一下方案进度。", hour: 15, minute: 8 },
+      { id: "group-2", role: "ta", displayedText: "UI 风格先统一成微信桌面端那种感觉。", hour: 15, minute: 11 },
+      { id: "group-3", role: "user", displayedText: "收到，我今晚把聊天和空间都补齐。", hour: 15, minute: 15 }
+    ],
+    replyPool: ["收到。", "先按这个方向推进。", "可以，晚点一起看效果。"]
+  }
+} as const;

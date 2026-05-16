@@ -1,17 +1,16 @@
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { toPng } from "html-to-image";
+import { useAppStore } from "../../app/store/useAppStore";
 import ShareCard from "../../components/share/ShareCard";
-import { useSessionStore } from "../../app/store/sessionStore";
 import { shareCardComposer } from "../../features/share-card";
 
 const pageStyles = {
   shell: {
     minHeight: "100vh",
     padding: "40px 20px 56px",
-    background:
-      "radial-gradient(circle at top, rgba(120, 37, 37, 0.28), transparent 28%), #050505",
-    color: "#f5f5f5",
+    background: "linear-gradient(180deg, rgba(149, 236, 105, 0.08), transparent 240px), #dfe7df",
+    color: "#1f1f1f",
     fontFamily:
       '"Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
   } satisfies CSSProperties,
@@ -32,7 +31,7 @@ const pageStyles = {
   } satisfies CSSProperties,
   eyebrow: {
     margin: 0,
-    color: "#8f8f8f",
+    color: "#4f9f33",
     letterSpacing: "0.12em",
     textTransform: "uppercase",
     fontSize: "12px",
@@ -45,17 +44,17 @@ const pageStyles = {
   } satisfies CSSProperties,
   description: {
     margin: 0,
-    color: "#b7b7b7",
+    color: "#5f6660",
     fontSize: "16px",
     lineHeight: 1.7,
   } satisfies CSSProperties,
   status: {
     margin: 0,
     padding: "14px 16px",
-    borderRadius: "16px",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "rgba(255,255,255,0.03)",
-    color: "#d6d6d6",
+    borderRadius: "14px",
+    border: "1px solid rgba(149, 236, 105, 0.3)",
+    background: "rgba(231, 248, 221, 0.94)",
+    color: "#356d22",
     fontSize: "14px",
     lineHeight: 1.6,
   } satisfies CSSProperties,
@@ -66,20 +65,20 @@ const pageStyles = {
   } satisfies CSSProperties,
   primaryButton: {
     border: 0,
-    borderRadius: "999px",
+    borderRadius: "12px",
     padding: "14px 20px",
-    background: "#f3f3f3",
-    color: "#080808",
+    background: "#95ec69",
+    color: "#17320b",
     fontSize: "15px",
     fontWeight: 700,
     cursor: "pointer",
   } satisfies CSSProperties,
   secondaryButton: {
-    borderRadius: "999px",
+    borderRadius: "12px",
     padding: "14px 20px",
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "transparent",
-    color: "#f3f3f3",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "rgba(255, 255, 255, 0.96)",
+    color: "#1f1f1f",
     fontSize: "15px",
     fontWeight: 600,
     cursor: "pointer",
@@ -91,7 +90,7 @@ const pageStyles = {
   noteList: {
     margin: 0,
     paddingLeft: "18px",
-    color: "#909090",
+    color: "#5f6660",
     lineHeight: 1.8,
   } satisfies CSSProperties,
   previewWrap: {
@@ -102,7 +101,7 @@ const pageStyles = {
 
 function createFileName(endingType: string) {
   const time = new Date().toISOString().slice(0, 10);
-  return `ta-say-share-card-${endingType}-${time}.png`;
+  return `过拟合恋人-share-card-${endingType}-${time}.png`;
 }
 
 export function ShareCardPage() {
@@ -111,18 +110,18 @@ export function ShareCardPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const session = {
-    chatHistory: useSessionStore((state) => state.chatHistory),
-    deletedDraftCount: useSessionStore((state) => state.deletedDraftCount),
-    deletedDrafts: useSessionStore((state) => state.deletedDrafts),
-    endingType: useSessionStore((state) => state.endingType),
-    fearType: useSessionStore((state) => state.fearType),
-    hasFinishedGame: useSessionStore((state) => state.hasFinishedGame),
-    hardestSentence: useSessionStore((state) => state.hardestSentence),
-    loadCount: useSessionStore((state) => state.loadCount),
-    pollutionCount: useSessionStore((state) => state.pollutionCount),
-    shareCardData: useSessionStore((state) => state.shareCardData),
-    translatorReport: useSessionStore((state) => state.translatorReport),
-    triggeredKeywords: useSessionStore((state) => state.triggeredKeywords),
+    chatHistory: useAppStore((state) => state.session.chatHistory),
+    deletedDraftCount: useAppStore((state) => state.session.deletedDraftCount),
+    deletedDrafts: useAppStore((state) => state.session.deletedDrafts),
+    endingType: useAppStore((state) => state.session.endingType),
+    fearType: useAppStore((state) => state.session.fearType),
+    hasFinishedGame: useAppStore((state) => state.session.hasFinishedGame),
+    hardestSentence: useAppStore((state) => state.session.hardestSentence),
+    loadCount: useAppStore((state) => state.session.loadCount),
+    pollutionCount: useAppStore((state) => state.session.pollutionCount),
+    shareCardData: useAppStore((state) => state.session.shareCardData),
+    translatorReport: useAppStore((state) => state.session.translatorReport),
+    triggeredKeywords: useAppStore((state) => state.session.triggeredKeywords),
   };
 
   const cardData = useMemo(() => shareCardComposer({ session }), [session]);
@@ -162,7 +161,7 @@ export function ShareCardPage() {
 
       const dataUrl = await toPng(cardRef.current, {
         cacheBust: true,
-        backgroundColor: "#080808",
+        backgroundColor: "#f6f8f6",
         pixelRatio: 2,
       });
 

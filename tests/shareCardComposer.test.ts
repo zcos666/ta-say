@@ -44,7 +44,7 @@ describe("shareCardComposer", () => {
       }),
     });
 
-    expect(data.title).toBe("《ta说》关系幻觉报告");
+    expect(data.title).toBe("《过拟合恋人》关系幻觉报告");
     expect(data.endingType).toBe("草稿幽灵");
     expect(data.shareLine).toBe("缓存短句");
     expect(data.metrics[0]?.value).toBe("× 9");

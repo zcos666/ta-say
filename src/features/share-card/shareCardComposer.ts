@@ -153,7 +153,7 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
   const shareLine = resolveShareLine(endingType, storedCard);
 
   return {
-    title: "《ta说》关系幻觉报告",
+    title: "《过拟合恋人》关系幻觉报告",
     subtitle: fearTypeSubtitleMap[fearType] || fearTypeSubtitleMap["害怕说真话"],
     endingType,
     hardestSentence: wrapQuote(hardestSentence),

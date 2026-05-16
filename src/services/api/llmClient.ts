@@ -1,5 +1,12 @@
 import { buildTaReplyPrompt } from "../../config/prompts";
-import type { LoveTranslationReport, TaReplyRequest, TaReplyResponse } from "../../types/api";
+import type {
+  LoveTranslateRequest,
+  LoveTranslationReport,
+  ShareLineRequest,
+  ShareLineResponse,
+  TaReplyRequest,
+  TaReplyResponse,
+} from "../../types/api";
 
 type ChatMessageContent = string | Array<{ type?: string; text?: string }> | undefined;
 
@@ -43,7 +50,7 @@ function extractMessageContent(content: ChatMessageContent): string {
   return "";
 }
 
-function extractReplyJson(raw: string): string[] {
+function extractReplyJson(raw: string, desiredReplyLineCount: 1 | 2): string[] {
   const normalized = raw.trim();
   const jsonMatch = normalized.match(/\{[\s\S]*\}/);
 
@@ -60,7 +67,7 @@ function extractReplyJson(raw: string): string[] {
   const reply = parsed.reply
     .map((line) => (typeof line === "string" ? line.trim() : ""))
     .filter(Boolean)
-    .slice(0, 2);
+    .slice(0, desiredReplyLineCount);
 
   if (reply.length === 0) {
     throw new Error("LLM reply array is empty.");
@@ -80,7 +87,10 @@ function extractJson<T>(raw: string): T {
   return JSON.parse(jsonMatch[0]) as T;
 }
 
-function buildLoveTranslateMessages(chatText: string): { system: string; user: string } {
+function buildLoveTranslateMessages(
+  chatText: string,
+  context?: LoveTranslateRequest["context"],
+): { system: string; user: string } {
   return {
     system: [
       "你是一个恋爱语言翻译官。",
@@ -95,9 +105,47 @@ function buildLoveTranslateMessages(chatText: string): { system: string; user: s
       "2. 不要做心理诊断。",
       "3. 不要断言对方一定怎么想，只能说可能。",
       "4. 给出更好的表达方式和一条具体建议。",
+      `用户关系恐惧类型：${context?.fearType ?? "未知"}`,
+      `对方代称：${context?.taPronoun ?? "TA"}`,
       `聊天内容：\n${chatText}`
     ].join("\n")
   };
+}
+
+function buildShareLineMessages(payload: ShareLineRequest): { system: string; user: string } {
+  return {
+    system: [
+      "你是《过拟合恋人》里的结局文案系统。",
+      "你的任务是根据用户本轮互动数据，生成一句适合放在分享卡上的短句。",
+      "输出必须是 JSON，不要代码块，不要额外说明。",
+      'JSON 格式固定为 {"shareLine":""}。',
+    ].join("\n"),
+    user: [
+      "请生成一句分享卡短句。",
+      "要求：",
+      "1. 有传播感。",
+      "2. 有一点扎心。",
+      "3. 不要羞辱用户。",
+      "4. 不超过 25 个字。",
+      "5. 风格像恋爱 Meta 恐怖游戏的结尾。",
+      `结局类型：${payload.endingType}`,
+      `最大嘴硬句：${payload.hardestSentence}`,
+      `反义污染次数：${payload.pollutionCount}`,
+      `删除草稿次数：${payload.deletedCount}`,
+      `读档次数：${payload.loadCount}`,
+    ].join("\n"),
+  };
+}
+
+function extractShareLineJson(raw: string): string {
+  const parsed = extractJson<{ shareLine?: unknown }>(raw);
+  const shareLine = typeof parsed.shareLine === "string" ? parsed.shareLine.trim() : "";
+
+  if (!shareLine) {
+    throw new Error("LLM share line JSON is missing shareLine.");
+  }
+
+  return shareLine;
 }
 
 async function requestChatCompletion(messages: Array<{ role: "system" | "user"; content: string }>) {
@@ -117,8 +165,8 @@ async function requestChatCompletion(messages: Array<{ role: "system" | "user"; 
     },
     body: JSON.stringify({
       model,
-      temperature: 0.95,
-      max_tokens: 240,
+      temperature: 0.65,
+      max_tokens: 140,
       messages
     })
   });
@@ -157,17 +205,20 @@ export async function generateTaReply(request: TaReplyRequest): Promise<TaReplyR
   ]);
 
   return {
-    reply: extractReplyJson(rawContent),
+    reply: extractReplyJson(rawContent, request.desiredReplyLineCount),
     source: "llm"
   };
 }
 
-async function loveTranslate(chatText: string): Promise<LoveTranslationReport | null> {
+async function loveTranslate(
+  chatText: string,
+  context?: LoveTranslateRequest["context"],
+): Promise<LoveTranslationReport | null> {
   if (!isEnabled()) {
     return null;
   }
 
-  const prompt = buildLoveTranslateMessages(chatText);
+  const prompt = buildLoveTranslateMessages(chatText, context);
   const rawContent = await requestChatCompletion([
     {
       role: "system",
@@ -182,8 +233,31 @@ async function loveTranslate(chatText: string): Promise<LoveTranslationReport | 
   return extractJson<LoveTranslationReport>(rawContent);
 }
 
+async function shareLine(payload: ShareLineRequest): Promise<ShareLineResponse | null> {
+  if (!isEnabled()) {
+    return null;
+  }
+
+  const prompt = buildShareLineMessages(payload);
+  const rawContent = await requestChatCompletion([
+    {
+      role: "system",
+      content: prompt.system,
+    },
+    {
+      role: "user",
+      content: prompt.user,
+    },
+  ]);
+
+  return {
+    shareLine: extractShareLineJson(rawContent),
+  };
+}
+
 export const llmClient = {
   isEnabled,
   taReply: generateTaReply,
-  loveTranslate
+  loveTranslate,
+  shareLine,
 };

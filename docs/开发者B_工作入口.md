@@ -2,15 +2,14 @@
 
 ## 1. 你的职责
 
-你负责《ta说》的翻译官与传播闭环：
+你负责《过拟合恋人》的翻译官、分享卡与语音输入：
 
 - 恋爱翻译官页面
-- 翻译结果结构化展示
-- 分享卡页面
-- 分享卡导出
-- 通关后首页入口
-- 语音输入或降级
-- 翻译相关 API 封装
+- 翻译结构化输出
+- 分享卡页面与导出
+- 通关后入口衔接
+- 语音输入
+- 翻译相关接口封装
 
 ## 2. 你优先进入的目录
 
@@ -21,46 +20,16 @@
 - `src/services/voice`
 - `src/components/share`
 
-## 3. 你先不要动的目录
+## 3. 你的工作要求
 
-- `src/pages/ChatPage`
-- `src/features/pollution`
-- `src/features/reply`
-- `src/features/save-load`
+1. 按正式功能要求实现翻译官。
+2. 按正式功能要求实现分享卡。
+3. 按正式功能要求实现语音输入。
+4. 不允许用静态结果、假数据或预设文本代替正式能力。
 
-## 4. 你第一阶段的目标
+## 4. 开始前先读
 
-1. 打通翻译官输入到结构化结果的 mock 闭环。
-2. 让分享卡基于固定 mock 数据先跑起来。
-3. 接首页通关后入口。
-4. 再接真实会话统计与 API。
-
-## 5. 你依赖 A 提供的数据
-
-- `hasFinishedGame`
-- `pollutionCount`
-- `deletedDraftCount`
-- `loadCount`
-- `endingType`
-- `hardestSentence`
-- `fearType`
-
-## 6. 你开始编码前先读
-
+- `ta说_PRD_最终版.md`
 - `ta说_Architecture.md`
 - `ta说_实施计划.md`
-- `docs/统一文件架构.md`
-- `docs/协作分工与目录归属.md`
-
-## 7. 你的 Trae 提示词目录
-
-- `.trae/prompts/developer-b`
-
-## 8. 你的第一批建议任务
-
-1. 翻译官页面骨架
-2. 结构化结果卡片
-3. mock `translatorService`
-4. 分享卡页面
-5. 通关后首页入口
-6. 导出能力预留
+- `src/services/api/README.md`

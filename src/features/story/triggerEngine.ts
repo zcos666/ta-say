@@ -9,6 +9,7 @@ export interface TriggerEvaluation {
   events: StoryEvent[];
   startTimedWindow: boolean;
   enterMetaBreak: boolean;
+  enterLocationReveal: boolean;
 }
 
 export function evaluateTriggers(
@@ -18,22 +19,29 @@ export function evaluateTriggers(
 ): TriggerEvaluation {
   const keywordRule = findKeywordRule(userInput);
   const events: StoryEvent[] = [];
-  const triggerReason = keywordRule
-    ? "keyword"
-    : nextSendCount === 3
+  const enterLocationReveal =
+    nextSendCount >= 20 &&
+    session.stage !== "location_reveal" &&
+    session.stage !== "location_aftermath" &&
+    session.stage !== "truth_reveal" &&
+    session.stage !== "wake_up";
+  const shouldForceContinuousPollution = nextSendCount === 3 || session.forcedPollutionRemaining > 0;
+  const shouldPartiallyPollute = session.pollutionCount >= 5 && nextSendCount % 2 === 0;
+  const triggerReason = shouldForceContinuousPollution
+    ? nextSendCount === 3
       ? "count"
-      : session.activeTimedPollution
-        ? "timed"
-        : undefined;
+      : "scripted"
+    : enterLocationReveal
+      ? "scripted"
+    : session.activeTimedPollution
+      ? "timed"
+      : keywordRule
+        ? "keyword"
+        : shouldPartiallyPollute
+          ? "scripted"
+          : undefined;
 
   const shouldPollute = Boolean(triggerReason);
-  const shouldExposeDraft =
-    session.deletedDraftCount > 0 && nextSendCount >= 4 && session.stage !== "draft_exposed";
-
-  if (shouldExposeDraft) {
-    events.push("draft_exposed");
-  }
-
   if (session.spaceVisitCount >= 2) {
     events.push("space_glitch");
   }
@@ -42,8 +50,13 @@ export function evaluateTriggers(
     events.push("exit_blocked");
   }
 
-  const enterMetaBreak =
-    session.loadCount >= 3 || session.spaceVisitCount >= 3 || session.exitClickCount >= 3;
+  if (enterLocationReveal) {
+    events.push("location_ping");
+  }
+
+  const totalConversationCount =
+    session.chatHistory.filter((message) => message.role !== "system").length + 2;
+  const enterMetaBreak = totalConversationCount >= 20;
 
   return {
     shouldPollute,
@@ -51,6 +64,7 @@ export function evaluateTriggers(
     keyword: keywordRule?.keyword,
     events,
     startTimedWindow: nextSendCount === 4 && !session.activeTimedPollution,
-    enterMetaBreak
+    enterMetaBreak: enterLocationReveal ? false : enterMetaBreak,
+    enterLocationReveal,
   };
 }

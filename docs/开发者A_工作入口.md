@@ -2,14 +2,14 @@
 
 ## 1. 你的职责
 
-你负责《ta说》的恐怖游戏主体验：
+你负责《过拟合恋人》的主剧情体验：
 
-- 首页
+- 开始页
 - 选择页
 - 聊天主界面
-- 污染机制
-- TA 回复
-- 草稿监听
+- 反义污染
+- 恐怖回复系统
+- 输入框监听
 - 读档系统
 - 空间异常
 - 真相页
@@ -28,46 +28,14 @@
 - `src/features/drafts`
 - `src/features/save-load`
 
-## 3. 你先不要动的目录
+## 3. 你的工作要求
 
-- `src/pages/TranslatorPage`
-- `src/pages/ShareCardPage`
-- `src/features/translator`
-- `src/features/share-card`
+1. 按正式功能要求实现聊天主链路。
+2. 不允许以预设回复或静态逻辑长期代替正式回复能力。
+3. 剧情推进继续由规则系统控制。
 
-## 4. 你第一阶段的目标
+## 4. 开始前先读
 
-1. 打通首页到梦醒页。
-2. 让第 3 次发送必触发第一次污染。
-3. 让读档系统和草稿监听具备最小闭环。
-4. 写入 `hasFinishedGame`，为 B 提供通关入口数据。
-
-## 5. 你必须提供给 B 的数据
-
-- `hasFinishedGame`
-- `pollutionCount`
-- `deletedDraftCount`
-- `loadCount`
-- `endingType`
-- `hardestSentence`
-- `fearType`
-
-## 6. 你开始编码前先读
-
+- `ta说_PRD_最终版.md`
 - `ta说_Architecture.md`
 - `ta说_实施计划.md`
-- `docs/统一文件架构.md`
-- `docs/协作分工与目录归属.md`
-
-## 7. 你的 Trae 提示词目录
-
-- `.trae/prompts/developer-a`
-
-## 8. 你的第一批建议任务
-
-1. 聊天页骨架
-2. 发送消息链路
-3. 第一次污染
-4. 草稿监听
-5. 读档三状态
-6. 真相页逐行播放

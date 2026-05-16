@@ -5,8 +5,7 @@ import type { FearType, TaPronoun } from "../../types/story";
 
 const fearOptions: Array<{ value: FearType; copy: string }> = [
   { value: "害怕被抛下", copy: "会下意识把委屈说轻，免得显得自己离不开谁。" },
-  { value: "害怕被控制", copy: "容易先说随便，真正的边界总是拖到最后才说。" },
-  { value: "害怕说真话", copy: "常常先发一个安全版本，再把真实那句删掉。" }
+  { value: "害怕被控制", copy: "容易先说随便，真正的边界总是拖到最后才说。" }
 ];
 
 const pronounOptions: TaPronoun[] = ["他", "她", "TA"];
@@ -17,7 +16,7 @@ export function StartPage() {
   const isReplying = useAppStore((state) => state.isReplying);
   const resetForReplay = useAppStore((state) => state.resetForReplay);
   const selectSetup = useAppStore((state) => state.selectSetup);
-  const [fearType, setFearType] = useState<FearType>("害怕说真话");
+  const [fearType, setFearType] = useState<FearType>("害怕被抛下");
   const [taPronoun, setTaPronoun] = useState<TaPronoun>("TA");
 
   const selectedCopy = useMemo(
@@ -29,7 +28,7 @@ export function StartPage() {
     <main className="screen">
       <section className="shell page page-body stack">
         <p className="tiny">互动叙事游戏 / 开发者 A 的主链路实现</p>
-        <h1 className="hero-title">ta说</h1>
+        <h1 className="hero-title">过拟合恋人</h1>
         <p className="hero-subtitle">
           前半段是恋爱聊天，后半段是被你自己没说出口的话反过来追上来。
         </p>

@@ -1,24 +1,12 @@
-import { createChatMessage, type PersistedState, type SessionSnapshot, type SessionState } from "../../types/session";
+import { createChatMessage, type ChatMessage, type PersistedState, type SessionSnapshot, type SessionState } from "../../types/session";
+import { rollbackCopy } from "../../config/hardcodedCopy";
 
 export interface SaveLoadResult {
   nextSession: SessionState;
   nextPersistedState: PersistedState;
   kind: "restored" | "warning" | "failed" | "empty";
-}
-
-export function createAutoSaveSnapshot(session: SessionState): SessionSnapshot {
-  return {
-    fearType: session.fearType,
-    taPronoun: session.taPronoun,
-    stage: session.stage,
-    chatHistory: [...session.chatHistory],
-    originalInputs: [...session.originalInputs],
-    pollutedInputs: [...session.pollutedInputs],
-    triggeredKeywords: [...session.triggeredKeywords],
-    pollutionCount: session.pollutionCount,
-    sendCount: session.sendCount,
-    activeTimedPollution: session.activeTimedPollution
-  };
+  replyLines: string[];
+  replyKind?: "warning" | "glitch";
 }
 
 export function getLoadButtonLabel(loadCount: number): string {
@@ -33,12 +21,68 @@ export function getLoadButtonLabel(loadCount: number): string {
   return "读档";
 }
 
-export function restoreFromAutoSave(
+function inferStageFromHistory(messages: ChatMessage[]): SessionState["stage"] {
+  const userMessages = messages.filter((message) => message.role === "user");
+  const pollutedMessages = userMessages.filter((message) => Boolean(message.originalText));
+  const hasDraftExposure = messages.some(
+    (message) => message.role === "system" && message.displayedText.includes("输入框刚刚替你记住了")
+  );
+
+  if (hasDraftExposure) {
+    return "draft_exposed";
+  }
+
+  if (pollutedMessages.length > 0) {
+    return "first_pollution";
+  }
+
+  if (userMessages.length >= 2) {
+    return "normal_chat";
+  }
+
+  return "intro";
+}
+
+function inferForcedPollutionRemaining(sendCount: number, pollutionCount: number): number {
+  if (sendCount < 3 || pollutionCount >= 5) {
+    return 0;
+  }
+
+  return Math.max(0, 5 - pollutionCount);
+}
+
+export function createSnapshotFromMessage(session: SessionState, messageId: string): SessionSnapshot | null {
+  const targetIndex = session.chatHistory.findIndex((message) => message.id === messageId);
+
+  if (targetIndex < 0) {
+    return null;
+  }
+
+  const chatHistory = session.chatHistory.slice(0, targetIndex + 1);
+  const userMessages = chatHistory.filter((message) => message.role === "user");
+  const pollutedMessages = userMessages.filter((message) => Boolean(message.originalText));
+
+  return {
+    fearType: session.fearType,
+    taPronoun: session.taPronoun,
+    stage: inferStageFromHistory(chatHistory),
+    chatHistory,
+    originalInputs: userMessages.map((message) => message.originalText ?? message.displayedText),
+    pollutedInputs: pollutedMessages.map((message) => message.displayedText),
+    triggeredKeywords: [...session.triggeredKeywords],
+    pollutionCount: pollutedMessages.length,
+    sendCount: userMessages.length,
+    forcedPollutionRemaining: inferForcedPollutionRemaining(userMessages.length, pollutedMessages.length),
+    activeTimedPollution: false
+  };
+}
+
+export function restoreFromMessage(
   session: SessionState,
-  persistedState: PersistedState
+  persistedState: PersistedState,
+  snapshot: SessionSnapshot | null
 ): SaveLoadResult {
   const nextLoadCount = persistedState.loadCount + 1;
-  const snapshot = persistedState.autoSaveSnapshot;
 
   if (!snapshot) {
     const nextSession = {
@@ -46,7 +90,7 @@ export function restoreFromAutoSave(
       loadCount: nextLoadCount,
       chatHistory: [
         ...session.chatHistory,
-        createChatMessage("system", "你试着回档，但这里还没有能回去的地方。", { kind: "warning" })
+        createChatMessage("system", rollbackCopy.emptyTargetSystemNotice, { kind: "warning" })
       ]
     };
 
@@ -56,7 +100,8 @@ export function restoreFromAutoSave(
         ...persistedState,
         loadCount: nextLoadCount
       },
-      kind: "empty"
+      kind: "empty",
+      replyLines: []
     };
   }
 
@@ -64,11 +109,10 @@ export function restoreFromAutoSave(
     const nextSession = {
       ...session,
       loadCount: nextLoadCount,
-      stage: "meta_break" as const,
-      metaMemory: [...persistedState.metaMemory, "存档开始拒绝你了。"],
+      metaMemory: [...persistedState.metaMemory, "你以为只有你在读档。"],
       chatHistory: [
         ...session.chatHistory,
-        createChatMessage("system", "存档点闪了一下，然后自己关上了。", { kind: "glitch" })
+        createChatMessage("system", rollbackCopy.blockedSystemNotice, { kind: "glitch" })
       ]
     };
 
@@ -79,7 +123,9 @@ export function restoreFromAutoSave(
         loadCount: nextLoadCount,
         metaMemory: nextSession.metaMemory
       },
-      kind: "failed"
+      kind: "failed",
+      replyLines: [...rollbackCopy.thirdReplyLines],
+      replyKind: "glitch"
     };
   }
 
@@ -97,7 +143,7 @@ export function restoreFromAutoSave(
       ...snapshot.chatHistory,
       createChatMessage(
         "system",
-        nextLoadCount === 1 ? "读档成功。你短暂回到了第一次失真之前。" : "读档成功，但异常没有一起消失。",
+        nextLoadCount === 1 ? rollbackCopy.firstSuccessSystemNotice : rollbackCopy.secondSuccessSystemNotice,
         { kind: nextLoadCount === 1 ? "warning" : "glitch" }
       )
     ],
@@ -106,6 +152,7 @@ export function restoreFromAutoSave(
     triggeredKeywords: [...snapshot.triggeredKeywords],
     pollutionCount: snapshot.pollutionCount,
     sendCount: snapshot.sendCount,
+    forcedPollutionRemaining: snapshot.forcedPollutionRemaining,
     activeTimedPollution: snapshot.activeTimedPollution,
     loadCount: nextLoadCount,
     deletedDrafts: [...session.deletedDrafts],
@@ -126,6 +173,11 @@ export function restoreFromAutoSave(
       loadCount: nextLoadCount,
       metaMemory: preservedMetaMemory
     },
-    kind: nextLoadCount === 1 ? "restored" : "warning"
+    kind: nextLoadCount === 1 ? "restored" : "warning",
+    replyLines:
+      nextLoadCount === 1
+        ? [...rollbackCopy.firstReplyLines]
+        : [...rollbackCopy.secondReplyLines],
+    replyKind: nextLoadCount === 1 ? "warning" : "glitch"
   };
 }

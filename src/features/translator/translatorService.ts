@@ -1,7 +1,5 @@
 import { defaultMockChat, shareLineFallbacks, translatorFallbacks } from "../../config/fallbacks";
 import { llmClient } from "../../services/api/llmClient";
-import { requestShareLine } from "../../services/api/shareApi";
-import { requestLoveTranslate } from "../../services/api/translatorApi";
 import type { FearType, LoveTranslationReport, TaPronoun } from "../../types/api";
 import type { ShareCardData } from "../../types/session";
 
@@ -165,26 +163,32 @@ async function resolveRemoteReport(
   taPronoun: TaPronoun | null,
 ): Promise<ReportBuildResult> {
   try {
-    const report = await requestLoveTranslate({
-      chatText,
-      context: {
+    const report = await llmClient.loveTranslate(chatText, {
+      fearType,
+      taPronoun,
+    });
+
+    if (!report) {
+      return resolveLocalReport(
+        chatText,
         fearType,
         taPronoun,
-      },
-    });
+        "未检测到可用的大模型配置，已切换本地解读。",
+      );
+    }
 
     return {
       report: sanitizeReport(report, extractOriginalSentence(chatText)),
       usedFallback: false,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "翻译接口异常";
+    const message = error instanceof Error ? error.message : "翻译大模型异常";
 
     return resolveLocalReport(
       chatText,
       fearType,
       taPronoun,
-      `翻译接口暂时不可用，已切换本地解读：${message}`,
+      `翻译大模型暂时不可用，已切换本地解读：${message}`,
     );
   }
 }
@@ -201,7 +205,7 @@ async function resolveShareLine(
   loadCount: number,
 ) {
   try {
-    const response = await requestShareLine({
+    const response = await llmClient.shareLine({
       endingType: endingType ?? "梦醒翻译家",
       hardestSentence,
       pollutionCount,
@@ -209,18 +213,26 @@ async function resolveShareLine(
       loadCount,
     });
 
+    if (!response) {
+      return {
+        shareLine: buildLocalShareLine(endingType),
+        usedFallback: true,
+        notice: "未检测到可用的大模型配置，已改用本地短句。",
+      };
+    }
+
     return {
       shareLine: sanitizeField(response.shareLine, buildLocalShareLine(endingType)),
       usedFallback: false,
       notice: undefined,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "分享文案接口异常";
+    const message = error instanceof Error ? error.message : "分享文案大模型异常";
 
     return {
       shareLine: buildLocalShareLine(endingType),
       usedFallback: true,
-      notice: `分享文案接口暂时不可用，已改用本地短句：${message}`,
+      notice: `分享文案大模型暂时不可用，已改用本地短句：${message}`,
     };
   }
 }
@@ -255,7 +267,7 @@ export async function translateLoveLanguage(chatText: string): Promise<LoveTrans
       return sanitizeReport(llmReport, extractOriginalSentence(normalized));
     }
   } catch {
-    // Fall through to the dev API / local fallback path.
+    // Fall through to the local fallback path.
   }
 
   const reportResult = await resolveRemoteReport(normalized, null, null);

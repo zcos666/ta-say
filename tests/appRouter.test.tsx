@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AppRouter } from "../src/app/routes/AppRouter";
 
 describe("AppRouter", () => {
-  it("在根路径渲染 StartPage 占位页", () => {
+  it("在根路径渲染 StartPage", () => {
     render(
       <MemoryRouter
         initialEntries={["/"]}
@@ -14,7 +14,8 @@ describe("AppRouter", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("《ta说》主流程入口待接入")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "过拟合恋人" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始聊天" })).toBeInTheDocument();
   });
 
   it("在未知路径回退到根路径", () => {
@@ -27,6 +28,6 @@ describe("AppRouter", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("《ta说》主流程入口待接入")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "过拟合恋人" })).toBeInTheDocument();
   });
 });

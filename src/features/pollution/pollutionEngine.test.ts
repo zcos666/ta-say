@@ -6,7 +6,8 @@ describe("buildPollutionResult", () => {
     const result = buildPollutionResult({
       userInput: "没事，你忙吧",
       stage: "normal_chat",
-      fearType: "害怕说真话",
+      pollutionCount: 0,
+      sendCount: 4,
       triggerReason: "keyword"
     });
 
@@ -18,11 +19,25 @@ describe("buildPollutionResult", () => {
     const result = buildPollutionResult({
       userInput: "嗯",
       stage: "intro",
-      fearType: "害怕被控制",
+      pollutionCount: 0,
+      sendCount: 3,
       triggerReason: "count"
     });
 
     expect(result?.triggerReason).toBe("count");
-    expect(result?.pollutedText).toContain("怕被你决定");
+    expect(result?.pollutedText).toContain("温柔那面先发给你");
+  });
+
+  it('定位结尾事件会强制改写成 "你在哪？"', () => {
+    const result = buildPollutionResult({
+      userInput: "你到底是谁",
+      stage: "normal_chat",
+      pollutionCount: 6,
+      sendCount: 20,
+      triggerReason: "scripted",
+      events: ["location_ping"]
+    });
+
+    expect(result?.pollutedText).toBe("你在哪？");
   });
 });

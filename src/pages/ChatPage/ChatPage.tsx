@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store/useAppStore";
+import { mockChatCopy, rollbackCopy } from "../../config/hardcodedCopy";
 import { getStageStatus } from "../../features/story/stageConfig";
+import type { ChatMessage } from "../../types/session";
 
 function formatTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("zh-CN", {
@@ -10,18 +12,116 @@ function formatTime(timestamp: number) {
   });
 }
 
+function createMockTimestamp(hour: number, minute: number) {
+  const now = new Date();
+  now.setHours(hour, minute, 0, 0);
+  return now.getTime();
+}
+
+function createMockMessage(
+  id: string,
+  role: ChatMessage["role"],
+  displayedText: string,
+  hour: number,
+  minute: number,
+): ChatMessage {
+  return {
+    id,
+    role,
+    displayedText,
+    kind: "normal",
+    timestamp: createMockTimestamp(hour, minute)
+  };
+}
+
+type MockConversation = {
+  id: string;
+  name: string;
+  subtitle: string;
+  avatarLabel: string;
+  messages: ChatMessage[];
+  replyPool: string[];
+  view?: "chat" | "articles";
+  articles?: Array<{
+    id: string;
+    source: string;
+    title: string;
+    meta: string;
+    summary: string;
+    tag?: string;
+  }>;
+};
+
+function createInitialMockConversations(): Record<string, MockConversation> {
+  return {
+    assistant: {
+      ...mockChatCopy.assistant,
+      messages: mockChatCopy.assistant.messages.map((message) =>
+        createMockMessage(message.id, message.role, message.displayedText, message.hour, message.minute)
+      ),
+      replyPool: [...mockChatCopy.assistant.replyPool]
+    },
+    favorite: {
+      ...mockChatCopy.favorite,
+      articles: [...mockChatCopy.favorite.articles],
+      messages: mockChatCopy.favorite.messages.map((message) =>
+        createMockMessage(message.id, message.role, message.displayedText, message.hour, message.minute)
+      ),
+      replyPool: [...mockChatCopy.favorite.replyPool]
+    },
+    group: {
+      ...mockChatCopy.group,
+      messages: mockChatCopy.group.messages.map((message) =>
+        createMockMessage(message.id, message.role, message.displayedText, message.hour, message.minute)
+      ),
+      replyPool: [...mockChatCopy.group.replyPool]
+    }
+  };
+}
+
+function ChatSidebarIcon() {
+  return (
+    <svg className="desktop-sidebar-svg chat" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 5.5h8.5a5.5 5.5 0 0 1 0 11H11l-4.2 3v-3.5A5.5 5.5 0 0 1 6 5.5Z" />
+    </svg>
+  );
+}
+
+function SpaceSidebarIcon() {
+  return (
+    <svg className="desktop-sidebar-svg space" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.2" />
+      <path d="M12 4.8c1.8 1.8 2.8 4.3 2.8 7.2s-1 5.4-2.8 7.2c-1.8-1.8-2.8-4.3-2.8-7.2s1-5.4 2.8-7.2Z" />
+      <path d="M4.8 12h14.4" />
+      <path d="M7.2 7.2c1.5 1 3.1 1.5 4.8 1.5s3.3-.5 4.8-1.5" />
+      <path d="M7.2 16.8c1.5-1 3.1-1.5 4.8-1.5s3.3.5 4.8 1.5" />
+    </svg>
+  );
+}
+
 export function ChatPage() {
   const navigate = useNavigate();
   const session = useAppStore((state) => state.session);
   const isReplying = useAppStore((state) => state.isReplying);
   const sendMessage = useAppStore((state) => state.sendMessage);
   const updateDraft = useAppStore((state) => state.updateDraft);
-  const loadGame = useAppStore((state) => state.loadGame);
+  const rollbackToMessage = useAppStore((state) => state.rollbackToMessage);
   const visitSpace = useAppStore((state) => state.visitSpace);
   const exitAttempt = useAppStore((state) => state.exitAttempt);
-  const getLoadLabel = useAppStore((state) => state.getLoadLabel);
+  const enterTruthReveal = useAppStore((state) => state.enterTruthReveal);
+  const revealLocationLie = useAppStore((state) => state.revealLocationLie);
   const getSpaceLabel = useAppStore((state) => state.getSpaceLabel);
   const [draft, setDraft] = useState("");
+  const [rollbackMode, setRollbackMode] = useState(false);
+  const rollbackDisabled = session.loadCount >= 3;
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [selectedConversationId, setSelectedConversationId] = useState("z");
+  const [mockReplyingConversationId, setMockReplyingConversationId] = useState<string | null>(null);
+  const [mockConversations, setMockConversations] = useState<Record<string, MockConversation>>(() =>
+    createInitialMockConversations()
+  );
+  const streamRef = useRef<HTMLDivElement | null>(null);
+  const pendingTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (!session.fearType || !session.taPronoun) {
@@ -34,51 +134,197 @@ export function ChatPage() {
     }
   }, [navigate, session.fearType, session.stage, session.taPronoun]);
 
-  const latestMessage = session.chatHistory[session.chatHistory.length - 1];
-
-  const conversationItems = useMemo(() => {
-    const previewText = latestMessage?.displayedText ?? "开始新的聊天";
-    const previewTime = latestMessage ? formatTime(latestMessage.timestamp) : "刚刚";
-
-    return [
-      {
-        id: "z",
-        name: "Z.",
-        preview: previewText,
-        time: previewTime,
-        active: true
-      },
-      {
-        id: "assistant",
-        name: "文件传输助手",
-        preview: "把图片、文件和记录都放在这里。",
-        time: "昨天",
-        active: false
-      },
-      {
-        id: "favorite",
-        name: "收藏",
-        preview: "你标记过的聊天内容会出现在这里。",
-        time: "周二",
-        active: false
-      },
-      {
-        id: "group",
-        name: "工作群",
-        preview: "下午三点同步一下方案进度。",
-        time: "周一",
-        active: false
-      }
-    ];
-  }, [latestMessage]);
-
-  function handleSend() {
-    if (!draft.trim() || isReplying) {
+  useEffect(() => {
+    if (session.stage !== "location_aftermath") {
       return;
     }
 
-    void sendMessage(draft);
+    if (session.metaMemory.includes("定位结尾已进入真相页。")) {
+      return;
+    }
+
+    const lieTimer = window.setTimeout(() => {
+      revealLocationLie();
+    }, 5000);
+
+    const truthTimer = window.setTimeout(() => {
+      useAppStore.getState().patchSession({
+        metaMemory: [...useAppStore.getState().session.metaMemory, "定位结尾已进入真相页。"]
+      });
+      enterTruthReveal();
+      navigate("/truth");
+    }, 10000);
+
+    return () => {
+      window.clearTimeout(lieTimer);
+      window.clearTimeout(truthTimer);
+    };
+  }, [enterTruthReveal, navigate, revealLocationLie, session.stage]);
+
+  useEffect(() => {
+    return () => {
+      pendingTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  const latestMessage = session.chatHistory[session.chatHistory.length - 1];
+
+  const conversationItems = useMemo(() => {
+    const storyPreviewText = latestMessage?.displayedText ?? "开始新的聊天";
+    const storyPreviewTime = latestMessage ? formatTime(latestMessage.timestamp) : "刚刚";
+    const allItems = [
+      {
+        id: "z",
+        name: "宝宝",
+        subtitle: getStageStatus(session.stage),
+        avatarLabel: "宝",
+        preview: storyPreviewText,
+        time: storyPreviewTime
+      },
+      ...Object.values(mockConversations).map((conversation) => {
+        const lastMessage = conversation.messages[conversation.messages.length - 1];
+        const articlePreview = conversation.view === "articles" ? conversation.articles?.[0]?.title : undefined;
+        return {
+          id: conversation.id,
+          name: conversation.name,
+          subtitle: conversation.subtitle,
+          avatarLabel: conversation.avatarLabel,
+          preview: articlePreview ?? lastMessage?.displayedText ?? "点开看看有没有新消息",
+          time: lastMessage ? formatTime(lastMessage.timestamp) : "刚刚"
+        };
+      })
+    ];
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) {
+      return allItems;
+    }
+    return allItems.filter((item) => {
+      const haystack = `${item.name} ${item.preview} ${item.subtitle}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [getStageStatus, latestMessage, mockConversations, searchKeyword, session.stage]);
+
+  const currentConversation = useMemo(() => {
+    if (selectedConversationId === "z") {
+      return {
+        id: "z",
+        name: "宝宝",
+        subtitle: getStageStatus(session.stage),
+        avatarLabel: "宝",
+        isStory: true,
+        view: "chat" as const,
+        articles: [],
+        messages: session.chatHistory
+      };
+    }
+
+    const mockConversation = mockConversations[selectedConversationId];
+    if (mockConversation) {
+      return {
+        ...mockConversation,
+        isStory: false
+      };
+    }
+
+    return {
+      id: "z",
+      name: "宝宝",
+      subtitle: getStageStatus(session.stage),
+      avatarLabel: "宝",
+      isStory: true,
+      view: "chat" as const,
+      articles: [],
+      messages: session.chatHistory
+    };
+  }, [getStageStatus, mockConversations, selectedConversationId, session.chatHistory, session.stage]);
+
+  useEffect(() => {
+    const node = streamRef.current;
+    if (!node) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [currentConversation.messages, selectedConversationId]);
+
+  function handleSend() {
+    const nextDraft = draft.trim();
+    const isStoryConversation = currentConversation.id === "z";
+    const isStoryLocked =
+      isStoryConversation &&
+      (session.stage === "location_reveal" || session.stage === "location_aftermath");
+    const isConversationBusy = isStoryConversation
+      ? isReplying || isStoryLocked
+      : mockReplyingConversationId === currentConversation.id;
+
+    if (!nextDraft || isConversationBusy) {
+      return;
+    }
+
+    if (isStoryConversation) {
+      void sendMessage(nextDraft);
+      setDraft("");
+      return;
+    }
+
+    const currentMockConversation = mockConversations[currentConversation.id];
+    if (!currentMockConversation) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: `${currentConversation.id}-${Date.now()}-user`,
+      role: "user",
+      displayedText: nextDraft,
+      kind: "normal",
+      timestamp: Date.now()
+    };
+
+    setMockConversations((current) => ({
+      ...current,
+      [currentConversation.id]: {
+        ...currentMockConversation,
+        messages: [...currentMockConversation.messages, userMessage]
+      }
+    }));
     setDraft("");
+
+    if (currentConversation.id === "assistant" || currentMockConversation.replyPool.length === 0) {
+      return;
+    }
+
+    const replyText =
+      currentMockConversation.replyPool[
+        currentMockConversation.messages.length % currentMockConversation.replyPool.length
+      ];
+    setMockReplyingConversationId(currentConversation.id);
+
+    const timer = window.setTimeout(() => {
+      setMockConversations((current) => {
+        const targetConversation = current[currentConversation.id];
+        if (!targetConversation) {
+          return current;
+        }
+
+        const replyMessage: ChatMessage = {
+          id: `${currentConversation.id}-${Date.now()}-reply`,
+          role: "ta",
+          displayedText: replyText,
+          kind: "normal",
+          timestamp: Date.now()
+        };
+
+        return {
+          ...current,
+          [currentConversation.id]: {
+            ...targetConversation,
+            messages: [...targetConversation.messages, replyMessage]
+          }
+        };
+      });
+      setMockReplyingConversationId((current) => (current === currentConversation.id ? null : current));
+    }, 520);
+
+    pendingTimersRef.current.push(timer);
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -93,26 +339,20 @@ export function ChatPage() {
       <section className="desktop-chat-shell">
         <aside className="desktop-app-sidebar" aria-label="功能导航">
           <div className="desktop-app-sidebar-top">
-            <button className="desktop-app-avatar" type="button">
-              ME
+            <button className="desktop-app-icon active" type="button" aria-label="聊天">
+              <ChatSidebarIcon />
             </button>
-            <button className="desktop-app-icon active" type="button">
-              C
-            </button>
-            <button className="desktop-app-icon" type="button">
-              P
-            </button>
-            <button className="desktop-app-icon" type="button">
-              F
-            </button>
-            <button className="desktop-app-icon" type="button">
-              S
-            </button>
-          </div>
-
-          <div className="desktop-app-sidebar-bottom">
-            <button className="desktop-app-icon" type="button" onClick={() => navigate("/")}>
-              B
+            <button
+              className="desktop-app-icon"
+              type="button"
+              aria-label={getSpaceLabel()}
+              title={getSpaceLabel()}
+              onClick={() => {
+                visitSpace();
+                navigate("/space");
+              }}
+            >
+              <SpaceSidebarIcon />
             </button>
           </div>
         </aside>
@@ -120,15 +360,28 @@ export function ChatPage() {
         <aside className="desktop-chat-list">
           <header className="desktop-chat-list-header">
             <label className="desktop-search">
-              <span className="desktop-search-icon">/</span>
-              <input type="text" placeholder="搜索" />
+              <span className="desktop-search-icon">搜</span>
+              <input
+                type="text"
+                placeholder="搜索"
+                value={searchKeyword}
+                onChange={(event) => setSearchKeyword(event.target.value)}
+              />
             </label>
           </header>
 
           <div className="desktop-chat-list-scroll">
             {conversationItems.map((item) => (
-              <button key={item.id} className={`desktop-conversation-item${item.active ? " active" : ""}`} type="button">
-                <span className="desktop-conversation-avatar">{item.name.slice(0, 1)}</span>
+              <button
+                key={item.id}
+                className={`desktop-conversation-item${selectedConversationId === item.id ? " active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setSelectedConversationId(item.id);
+                  setRollbackMode(false);
+                }}
+              >
+                <span className="desktop-conversation-avatar">{item.avatarLabel}</span>
                 <span className="desktop-conversation-body">
                   <span className="desktop-conversation-row">
                     <strong>{item.name}</strong>
@@ -144,33 +397,103 @@ export function ChatPage() {
         <section className="desktop-chat-main">
           <header className="desktop-chat-header">
             <div>
-              <h1 className="desktop-chat-title">Z.</h1>
-              <p className="desktop-chat-subtitle">{isReplying ? "正在输入..." : getStageStatus(session.stage)}</p>
+              <h1 className="desktop-chat-title">{currentConversation.name}</h1>
+              <p className="desktop-chat-subtitle">
+                {currentConversation.id === "z" && isReplying
+                  ? "正在输入..."
+                  : currentConversation.id !== "z" && mockReplyingConversationId === currentConversation.id
+                    ? "正在输入..."
+                    : currentConversation.subtitle}
+              </p>
             </div>
             <div className="desktop-chat-header-actions">
-              <button
-                className="desktop-header-button"
-                type="button"
-                onClick={() => {
-                  visitSpace();
-                  navigate("/space");
-                }}
-              >
-                {getSpaceLabel()}
-              </button>
-              <button className="desktop-header-button" type="button" onClick={loadGame}>
-                {getLoadLabel()}
-              </button>
-              <button className="desktop-header-button icon" type="button" onClick={exitAttempt}>
-                ...
+              {currentConversation.isStory ? (
+                <button
+                  className="desktop-header-button"
+                  type="button"
+                  disabled={rollbackDisabled}
+                  aria-label={
+                    rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"
+                  }
+                  title={rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"}
+                  onClick={() => {
+                    if (rollbackDisabled) {
+                      return;
+                    }
+                    setRollbackMode((current) => !current);
+                  }}
+                >
+                  {rollbackDisabled ? "🔒" : rollbackMode ? "×" : "↶"}
+                </button>
+              ) : null}
+              <button className="desktop-header-button icon windows-close-button" type="button" onClick={exitAttempt}>
+                ×
               </button>
             </div>
           </header>
 
-          <div className="desktop-chat-stream">
-            {session.chatHistory.map((message, index) => {
-              const previousRole = index > 0 ? session.chatHistory[index - 1]?.role : null;
+          <div ref={streamRef} className="desktop-chat-stream">
+            {currentConversation.view === "articles" ? (
+              <section className="favorite-article-feed" aria-label="收藏文章列表">
+                {currentConversation.articles?.map((article: NonNullable<MockConversation["articles"]>[number]) => (
+                  <article key={article.id} className="favorite-article-card">
+                    <header className="favorite-article-header">
+                      <div className="favorite-article-source">
+                        <span className="favorite-article-avatar">{article.source.slice(0, 1)}</span>
+                        <strong>{article.source}</strong>
+                      </div>
+                      <div className="favorite-article-meta">
+                        <span>{article.meta}</span>
+                        {article.tag ? <span>{article.tag}</span> : null}
+                      </div>
+                    </header>
+                    <h2 className="favorite-article-title">{article.title}</h2>
+                    <p className="favorite-article-summary">{article.summary}</p>
+                    <footer className="favorite-article-footer">
+                      <span>公众号文章</span>
+                      <button type="button">查看</button>
+                    </footer>
+                  </article>
+                ))}
+              </section>
+            ) : (
+              <>
+                {currentConversation.messages.map((message, index) => {
+              const previousRole = index > 0 ? currentConversation.messages[index - 1]?.role : null;
               const grouped = previousRole === message.role;
+
+              if (message.kind === "space_notice") {
+                return (
+                  <article key={message.id} className="desktop-space-notice-row">
+                    <div className="desktop-space-notice-card">
+                      <div className="desktop-space-notice-badge">QQ 空间提醒</div>
+                      <strong className="desktop-space-notice-title">{currentConversation.name}刚刚更新了说说</strong>
+                      <p className="desktop-space-notice-copy">{message.displayedText.replace(/^.*空间：/, "")}</p>
+                      <time className="desktop-space-notice-time">{formatTime(message.timestamp)}</time>
+                    </div>
+                  </article>
+                );
+              }
+
+              if (message.kind === "location_notice") {
+                return (
+                  <article key={message.id} className="desktop-space-notice-row">
+                    <div className="desktop-space-notice-card">
+                      <div className="desktop-space-notice-badge">定位共享</div>
+                      <strong className="desktop-space-notice-title">对方发来一张定位图</strong>
+                      <p className="desktop-space-notice-copy">最后一句已经被强制改成了“你在哪？”。</p>
+                      <button
+                        className="desktop-message-rollback"
+                        type="button"
+                        onClick={() => navigate("/location")}
+                      >
+                        查看定位
+                      </button>
+                      <time className="desktop-space-notice-time">{formatTime(message.timestamp)}</time>
+                    </div>
+                  </article>
+                );
+              }
 
               return (
                 <article
@@ -178,62 +501,99 @@ export function ChatPage() {
                   className={`desktop-message-row ${message.role}${grouped ? " is-grouped" : ""}`}
                 >
                   {message.role !== "user" ? (
-                    <span className={`desktop-message-avatar ${message.role}`}>{message.role === "ta" ? "Z" : "S"}</span>
+                    <span className={`desktop-message-avatar ${message.role}`}>
+                      {message.role === "ta" ? currentConversation.avatarLabel : "系"}
+                    </span>
                   ) : null}
 
                   <div className={`desktop-message-stack ${message.role}`}>
                     <div className={`desktop-message-bubble ${message.role}`}>
                       <span>{message.displayedText}</span>
                     </div>
+                    {currentConversation.isStory && rollbackMode && message.role !== "system" ? (
+                      <button
+                        className="desktop-message-rollback"
+                        type="button"
+                        disabled={isReplying || rollbackDisabled}
+                        onClick={() => {
+                          const confirmed = window.confirm("你是否要回退到当前版本？");
+                          if (!confirmed) {
+                            return;
+                          }
+                          try {
+                            rollbackToMessage(message.id);
+                          } catch (error) {
+                            window.alert(error instanceof Error ? error.message : rollbackCopy.limitError);
+                            return;
+                          }
+                          setRollbackMode(false);
+                        }}
+                      >
+                        回退到这里
+                      </button>
+                    ) : null}
                     <time className="desktop-message-time">{formatTime(message.timestamp)}</time>
                   </div>
 
-                  {message.role === "user" ? <span className="desktop-message-avatar user">ME</span> : null}
+                  {message.role === "user" ? <span className="desktop-message-avatar user">我</span> : null}
                 </article>
               );
-            })}
+                })}
+              </>
+            )}
           </div>
 
-          <footer className="desktop-chat-composer">
-            <div className="desktop-composer-toolbar">
-              <button className="desktop-toolbar-button" type="button">
-                :)
-              </button>
-              <button className="desktop-toolbar-button" type="button">
-                File
-              </button>
-              <button className="desktop-toolbar-button" type="button">
-                Shot
-              </button>
-              <button className="desktop-toolbar-button" type="button">
-                Call
-              </button>
-              <button className="desktop-toolbar-button" type="button">
-                Video
-              </button>
-            </div>
-
+          {currentConversation.view !== "articles" ? (
+            <footer className="desktop-chat-composer">
             <div className="desktop-composer-editor">
               <div className="desktop-composer-input-wrap">
                 <textarea
                   className="desktop-chat-input"
-                  placeholder="输入消息"
-                  disabled={isReplying}
+                  placeholder={`给${currentConversation.name}发消息`}
+                  disabled={
+                    currentConversation.id === "z"
+                      ? isReplying || session.stage === "location_reveal" || session.stage === "location_aftermath"
+                      : mockReplyingConversationId === currentConversation.id
+                  }
                   value={draft}
                   onKeyDown={handleInputKeyDown}
                   onChange={(event) => {
                     const nextValue = event.target.value;
-                    updateDraft(draft, nextValue);
+                    const nativeEvent = event.nativeEvent as InputEvent;
+                    const inputType = typeof nativeEvent.inputType === "string" ? nativeEvent.inputType : "";
+                    const isDeleting =
+                      inputType === "deleteContentBackward" || inputType === "deleteContentForward";
+
+                    updateDraft(draft, nextValue, {
+                      isDeleting,
+                      isComposing: Boolean(nativeEvent.isComposing)
+                    });
                     setDraft(nextValue);
                   }}
                 />
                 <span className="desktop-enter-hint">Enter 发送</span>
               </div>
-              <button className="desktop-send-button" type="button" disabled={isReplying} onClick={handleSend}>
-                {isReplying ? "发送中" : "发送"}
+              <button
+                className="desktop-send-button"
+                type="button"
+                disabled={
+                  currentConversation.id === "z"
+                    ? isReplying || session.stage === "location_reveal" || session.stage === "location_aftermath"
+                    : mockReplyingConversationId === currentConversation.id
+                }
+                onClick={handleSend}
+              >
+                {currentConversation.id === "z"
+                  ? isReplying
+                    ? "发送中"
+                    : "发送"
+                  : mockReplyingConversationId === currentConversation.id
+                    ? "发送中"
+                    : "发送"}
               </button>
             </div>
-          </footer>
+            </footer>
+          ) : null}
         </section>
       </section>
     </main>

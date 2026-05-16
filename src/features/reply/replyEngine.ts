@@ -12,24 +12,30 @@ interface ReplyContext {
   events?: StoryEvent[];
 }
 
+function pickReplyLineCount(): 1 | 2 {
+  return Math.random() < 0.5 ? 1 : 2;
+}
+
 function createReplyRequest({
   session,
   originalInput,
   pollutedInput,
   triggerReason,
   events = []
-}: ReplyContext): TaReplyRequest {
+}: ReplyContext, desiredReplyLineCount: 1 | 2): TaReplyRequest {
   return {
     stage: session.stage,
     originalInput,
     pollutedInput,
     events,
     loadCount: session.loadCount,
+    sendCount: session.sendCount,
+    pollutionCount: session.pollutionCount,
     deletedDrafts: session.deletedDrafts,
     triggerReason,
-    fearType: session.fearType,
     taPronoun: session.taPronoun,
     metaMemory: session.metaMemory,
+    desiredReplyLineCount,
     recentMessages: session.chatHistory.slice(-6).map((message) => ({
       role: message.role,
       text: message.displayedText
@@ -38,10 +44,18 @@ function createReplyRequest({
 }
 
 export async function buildReply(context: ReplyContext): Promise<string[]> {
+  const desiredReplyLineCount = pickReplyLineCount();
+
   try {
-    const result = await generateTaReply(createReplyRequest(context));
+    const result = await generateTaReply(createReplyRequest(context, desiredReplyLineCount));
     return result.reply;
-  } catch {
-    return getFallbackReply(context.session, context.triggerReason, context.events);
+  } catch (error) {
+    console.warn("[ta-say] TA reply fell back to local copy.", error);
+    return getFallbackReply(
+      context.session,
+      desiredReplyLineCount,
+      context.triggerReason,
+      context.events
+    );
   }
 }

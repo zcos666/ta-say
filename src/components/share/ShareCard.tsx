@@ -10,13 +10,12 @@ const styles = {
   shell: {
     width: "100%",
     maxWidth: "540px",
-    borderRadius: "28px",
-    border: "1px solid rgba(255,255,255,0.14)",
+    borderRadius: "24px",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
     padding: "28px",
-    background:
-      "linear-gradient(180deg, rgba(19,19,19,0.98) 0%, rgba(8,8,8,0.98) 100%)",
-    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.35)",
-    color: "#f4f4f4",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,248,246,0.98) 100%)",
+    boxShadow: "0 16px 40px rgba(31, 31, 31, 0.12)",
+    color: "#1f1f1f",
     fontFamily:
       '"Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
   } satisfies CSSProperties,
@@ -36,9 +35,9 @@ const styles = {
     width: "fit-content",
     padding: "6px 10px",
     borderRadius: "999px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.04)",
-    color: "#a8a8a8",
+    border: "1px solid rgba(149, 236, 105, 0.4)",
+    background: "rgba(231, 248, 221, 0.96)",
+    color: "#4f9f33",
     fontSize: "12px",
     letterSpacing: "0.08em",
   } satisfies CSSProperties,
@@ -51,16 +50,16 @@ const styles = {
   subtitle: {
     margin: 0,
     maxWidth: "320px",
-    color: "#b8b8b8",
+    color: "#5f6660",
     fontSize: "15px",
     lineHeight: 1.6,
   } satisfies CSSProperties,
   sampleTag: {
     padding: "10px 12px",
     borderRadius: "16px",
-    border: "1px solid rgba(255,95,95,0.3)",
-    color: "#ff8a8a",
-    background: "rgba(255,95,95,0.08)",
+    border: "1px solid rgba(149, 236, 105, 0.4)",
+    color: "#356d22",
+    background: "rgba(231, 248, 221, 0.96)",
     fontSize: "12px",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
@@ -69,12 +68,12 @@ const styles = {
     gap: "12px",
     padding: "18px",
     borderRadius: "22px",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "rgba(246, 248, 246, 0.98)",
   } satisfies CSSProperties,
   sectionLabel: {
     margin: 0,
-    color: "#8e8e8e",
+    color: "#868f86",
     fontSize: "12px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
@@ -93,7 +92,7 @@ const styles = {
     margin: 0,
     fontSize: "22px",
     lineHeight: 1.6,
-    color: "#f7d4d4",
+    color: "#356d22",
   } satisfies CSSProperties,
   metricsGrid: {
     display: "grid",
@@ -105,11 +104,11 @@ const styles = {
     gap: "6px",
     padding: "16px",
     borderRadius: "18px",
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
+    border: "1px solid rgba(215, 223, 214, 0.96)",
+    background: "#ffffff",
   } satisfies CSSProperties,
   metricLabel: {
-    color: "#8e8e8e",
+    color: "#868f86",
     fontSize: "12px",
   } satisfies CSSProperties,
   metricValue: {
@@ -126,17 +125,17 @@ const styles = {
     gap: "8px",
     marginTop: "20px",
     paddingTop: "20px",
-    borderTop: "1px solid rgba(255,255,255,0.08)",
+    borderTop: "1px solid rgba(215, 223, 214, 0.96)",
   } satisfies CSSProperties,
   footerLabel: {
     margin: 0,
-    color: "#9c9c9c",
+    color: "#5f6660",
     fontSize: "13px",
     lineHeight: 1.6,
   } satisfies CSSProperties,
   footerMeta: {
     margin: 0,
-    color: "#f0f0f0",
+    color: "#1f1f1f",
     fontSize: "14px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
@@ -189,7 +188,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(({ data }, r
 
     <footer style={styles.footer}>
       <p style={styles.footerLabel}>{data.footerLabel}</p>
-      <p style={styles.footerMeta}>TA SAY / SHARE CARD</p>
+      <p style={styles.footerMeta}>过拟合恋人 / SHARE CARD</p>
     </footer>
   </div>
 ));

@@ -1,32 +1,39 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const loveTranslateMock = vi.fn();
+const shareLineMock = vi.fn();
+
+vi.mock("../src/services/api/llmClient", () => ({
+  llmClient: {
+    isEnabled: () => true,
+    loveTranslate: (...args: unknown[]) => loveTranslateMock(...args),
+    shareLine: (...args: unknown[]) => shareLineMock(...args),
+  },
+}));
+
 import { translateConversation } from "../src/features/translator/translatorService";
 
 describe("translateConversation", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    loveTranslateMock.mockReset();
+    shareLineMock.mockReset();
   });
 
-  it("在接口成功时优先使用远端结果", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          original: "没事，你忙吧。",
-          possibleMeaning: "我其实很在意。",
-          sharpTranslation: "我想被你认真安抚。",
-          betterExpression: "我其实有点失落。",
-          actionAdvice: "把需求说具体。",
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          shareLine: "这次请别再让我猜你在想什么。",
-        }),
-      });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
-    vi.stubGlobal("fetch", fetchMock);
+  it("在大模型成功时优先使用大模型结果", async () => {
+    loveTranslateMock.mockResolvedValueOnce({
+      original: "没事，你忙吧。",
+      possibleMeaning: "我其实很在意。",
+      sharpTranslation: "我想被你认真安抚。",
+      betterExpression: "我其实有点失落。",
+      actionAdvice: "把需求说具体。",
+    });
+    shareLineMock.mockResolvedValueOnce({
+      shareLine: "这次请别再让我猜你在想什么。",
+    });
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
@@ -45,24 +52,19 @@ describe("translateConversation", () => {
     expect(result.report.sharpTranslation).toBe("我想被你认真安抚。");
     expect(result.shareCardData.aiTranslation).toBe("我想被你认真安抚。");
     expect(result.shareCardData.shareLine).toBe("这次请别再让我猜你在想什么。");
+    expect(loveTranslateMock).toHaveBeenCalledTimes(1);
+    expect(shareLineMock).toHaveBeenCalledTimes(1);
   });
 
-  it("在分享短句接口失败时保留远端翻译并回退本地短句", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          original: "没事，你忙吧。",
-          possibleMeaning: "我其实很在意。",
-          sharpTranslation: "我想被你认真安抚。",
-          betterExpression: "我其实有点失落。",
-          actionAdvice: "把需求说具体。",
-        }),
-      })
-      .mockRejectedValueOnce(new Error("share offline"));
-
-    vi.stubGlobal("fetch", fetchMock);
+  it("在分享短句大模型失败时保留翻译结果并回退本地短句", async () => {
+    loveTranslateMock.mockResolvedValueOnce({
+      original: "没事，你忙吧。",
+      possibleMeaning: "我其实很在意。",
+      sharpTranslation: "我想被你认真安抚。",
+      betterExpression: "我其实有点失落。",
+      actionAdvice: "把需求说具体。",
+    });
+    shareLineMock.mockRejectedValueOnce(new Error("share offline"));
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
@@ -82,9 +84,9 @@ describe("translateConversation", () => {
     expect(result.shareCardData.shareLine).toBe("你删掉的话，比你发出去的更诚实。");
   });
 
-  it("在接口不可用时回退到本地翻译与分享短句", async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
-    vi.stubGlobal("fetch", fetchMock);
+  it("在大模型不可用时回退到本地翻译与分享短句", async () => {
+    loveTranslateMock.mockRejectedValueOnce(new Error("offline"));
+    shareLineMock.mockRejectedValueOnce(new Error("offline"));
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
@@ -102,6 +104,7 @@ describe("translateConversation", () => {
     expect(result.shareLineUsedFallback).toBe(true);
     expect(result.report.sharpTranslation).toContain("我不是没事");
     expect(result.shareCardData.shareLine).toBe("你删掉的话，比你发出去的更诚实。");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(loveTranslateMock).toHaveBeenCalledTimes(1);
+    expect(shareLineMock).toHaveBeenCalledTimes(1);
   });
 });

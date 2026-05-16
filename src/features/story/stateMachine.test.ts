@@ -40,4 +40,17 @@ describe("deriveNextStage", () => {
       })
     ).toBe("save_loaded_twice");
   });
+
+  it("定位结尾事件优先进入 location_reveal", () => {
+    const session = createEmptySession();
+    session.stage = "normal_chat";
+
+    expect(
+      deriveNextStage({
+        session,
+        nextSendCount: 20,
+        events: ["location_ping"]
+      })
+    ).toBe("location_reveal");
+  });
 });
