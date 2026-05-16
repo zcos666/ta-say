@@ -98,6 +98,25 @@ function extractJson<T>(raw: string): T {
   return JSON.parse(jsonMatch[0]) as T;
 }
 
+function shouldRetryWithoutJsonMode(status: number, errorText: string): boolean {
+  if (![400, 404, 415, 422].includes(status)) {
+    return false;
+  }
+
+  const normalized = errorText.toLowerCase();
+  const indicators = [
+    "response_format",
+    "json_object",
+    "json schema",
+    "json mode",
+    "unsupported",
+    "not support",
+    "invalid parameter",
+  ];
+
+  return indicators.some((indicator) => normalized.includes(indicator));
+}
+
 function buildLoveTranslateMessages(
   chatText: string,
   context?: LoveTranslateRequest["context"],
@@ -159,12 +178,9 @@ function extractShareLineJson(raw: string): string {
   return shareLine;
 }
 
-async function requestChatCompletion(
+async function requestChatCompletionOnce(
   messages: Array<{ role: "system" | "user"; content: string }>,
-  options: {
-    temperature?: number;
-    maxTokens?: number;
-  } = {},
+  forceJsonMode: boolean,
 ) {
   const apiKey = getEnvValue("VITE_LLM_API_KEY");
 
@@ -174,23 +190,35 @@ async function requestChatCompletion(
 
   const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
   const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
+  const requestBody: Record<string, unknown> = {
+    model,
+    temperature: 0.65,
+    max_tokens: 140,
+    messages,
+  };
+
+  if (forceJsonMode) {
+    requestBody.response_format = { type: "json_object" };
+  }
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      temperature: options.temperature ?? 0.65,
-      max_tokens: options.maxTokens ?? 90,
-      messages
-    })
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`LLM request failed: ${response.status} ${errorText}`);
+    const error = new Error(`LLM request failed: ${response.status} ${errorText}`);
+    Object.assign(error, {
+      status: response.status,
+      errorText,
+      forceJsonMode,
+    });
+    throw error;
   }
 
   const data = (await response.json()) as ChatCompletionResponse;
@@ -208,98 +236,24 @@ async function requestChatCompletion(
   return rawContent;
 }
 
-async function requestChatCompletionStream(
-  messages: Array<{ role: "system" | "user"; content: string }>,
-  options: {
-    temperature?: number;
-    maxTokens?: number;
-    onChunk?: (chunk: string) => void;
-  } = {},
-) {
-  const apiKey = getEnvValue("VITE_LLM_API_KEY");
+async function requestChatCompletion(messages: Array<{ role: "system" | "user"; content: string }>) {
+  try {
+    return await requestChatCompletionOnce(messages, true);
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === "number"
+      ? ((error as { status: number }).status)
+      : 0;
+    const errorText = typeof (error as { errorText?: unknown })?.errorText === "string"
+      ? ((error as { errorText: string }).errorText)
+      : "";
+    const forceJsonMode = Boolean((error as { forceJsonMode?: unknown })?.forceJsonMode);
 
-  if (!apiKey) {
-    throw new Error("Missing VITE_LLM_API_KEY.");
-  }
-
-  const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
-  const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      temperature: options.temperature ?? 0.65,
-      max_tokens: options.maxTokens ?? 90,
-      stream: true,
-      messages
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`LLM request failed: ${response.status} ${errorText}`);
-  }
-
-  if (!response.body) {
-    throw new Error("LLM stream body is empty.");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let eventBuffer = "";
-  let rawContent = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-
-    if (done) {
-      break;
+    if (forceJsonMode && shouldRetryWithoutJsonMode(status, errorText)) {
+      return requestChatCompletionOnce(messages, false);
     }
 
-    eventBuffer += decoder.decode(value, { stream: true });
-    const events = eventBuffer.split("\n\n");
-    eventBuffer = events.pop() ?? "";
-
-    for (const event of events) {
-      const lines = event
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("data:"));
-
-      for (const line of lines) {
-        const payload = line.replace(/^data:\s*/, "");
-
-        if (!payload || payload === "[DONE]") {
-          continue;
-        }
-
-        const chunk = JSON.parse(payload) as ChatCompletionStreamResponse;
-
-        if (chunk.error?.message) {
-          throw new Error(chunk.error.message);
-        }
-
-        const delta = extractMessageContent(chunk.choices?.[0]?.delta?.content);
-
-        if (!delta) {
-          continue;
-        }
-
-        rawContent += delta;
-        options.onChunk?.(delta);
-      }
-    }
+    throw error;
   }
-
-  if (!rawContent.trim()) {
-    throw new Error("LLM returned empty streamed content.");
-  }
-
-  return rawContent;
 }
 
 export async function generateTaReply(request: TaReplyRequest): Promise<TaReplyResponse> {

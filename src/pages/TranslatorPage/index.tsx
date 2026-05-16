@@ -20,25 +20,55 @@ const pageStyles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: "40px 20px 64px",
-    background: "linear-gradient(180deg, rgba(149, 236, 105, 0.08), transparent 240px), #dfe7df",
+    background:
+      "radial-gradient(circle at top right, rgba(107, 44, 55, 0.08), transparent 24%), linear-gradient(180deg, rgba(20, 26, 22, 0.04), transparent 260px), #eef1ee",
     color: "#1f1f1f",
   },
   shell: {
     width: "min(1120px, 100%)",
     margin: "0 auto",
     display: "grid",
-    gap: 24,
+    gap: 28,
   },
   hero: {
     display: "grid",
-    gap: 12,
+    gap: 14,
+    padding: "26px 24px 24px",
+    borderRadius: 28,
+    background: "rgba(255, 255, 255, 0.84)",
+    border: "1px solid rgba(214, 220, 214, 0.92)",
+    boxShadow: "0 18px 44px rgba(24, 31, 24, 0.08)",
+    backdropFilter: "blur(12px)",
+  },
+  heroTopLine: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
   },
   eyebrow: {
     margin: 0,
-    color: "#4f9f33",
+    display: "inline-flex",
+    width: "fit-content",
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(30, 37, 33, 0.08)",
+    background: "rgba(241, 243, 241, 0.96)",
+    color: "#39423c",
     fontSize: 13,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
+  },
+  heroBadge: {
+    display: "inline-flex",
+    width: "fit-content",
+    padding: "6px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    letterSpacing: "0.04em",
+    background: "rgba(107, 44, 55, 0.08)",
+    border: "1px solid rgba(107, 44, 55, 0.16)",
+    color: "#673340",
   },
   title: {
     margin: 0,
@@ -48,8 +78,19 @@ const pageStyles: Record<string, CSSProperties> = {
   description: {
     margin: 0,
     maxWidth: 720,
-    color: "#5f6660",
+    color: "#5d655d",
     fontSize: 16,
+    lineHeight: 1.7,
+  },
+  heroWarning: {
+    width: "fit-content",
+    maxWidth: "100%",
+    padding: "12px 14px",
+    borderRadius: 16,
+    background: "linear-gradient(180deg, rgba(255,248,250,0.96) 0%, rgba(247,242,244,0.96) 100%)",
+    border: "1px solid rgba(107, 44, 55, 0.14)",
+    color: "#5f4b50",
+    fontSize: 13,
     lineHeight: 1.7,
   },
   grid: {
@@ -59,16 +100,31 @@ const pageStyles: Record<string, CSSProperties> = {
   },
   panel: {
     display: "grid",
-    gap: 18,
-    padding: 20,
-    borderRadius: 20,
+    gap: 20,
+    padding: 24,
+    borderRadius: 28,
     background: "rgba(255, 255, 255, 0.98)",
-    border: "1px solid rgba(215, 223, 214, 0.96)",
-    boxShadow: "0 14px 36px rgba(31, 31, 31, 0.08)",
+    border: "1px solid rgba(214, 220, 214, 0.96)",
+    boxShadow: "0 18px 44px rgba(24, 31, 24, 0.08)",
+  },
+  panelTitle: {
+    margin: 0,
+    fontSize: 18,
+    lineHeight: 1.4,
+  },
+  panelIntro: {
+    margin: 0,
+    color: "#707870",
+    fontSize: 13,
+    lineHeight: 1.7,
   },
   field: {
     display: "grid",
     gap: 10,
+    padding: 16,
+    borderRadius: 20,
+    background: "#f7f8f7",
+    border: "1px solid rgba(226, 230, 226, 0.96)",
   },
   label: {
     fontSize: 14,
@@ -79,19 +135,20 @@ const pageStyles: Record<string, CSSProperties> = {
     margin: 0,
     fontSize: 13,
     lineHeight: 1.6,
-    color: "#868f86",
+    color: "#7b837b",
   },
   textarea: {
     minHeight: 180,
     resize: "vertical",
-    borderRadius: 14,
-    border: "1px solid rgba(215, 223, 214, 0.96)",
-    background: "#ffffff",
+    borderRadius: 18,
+    border: "1px solid rgba(214, 220, 214, 0.96)",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,251,250,0.98) 100%)",
     color: "#1f1f1f",
     padding: 16,
     fontSize: 15,
     lineHeight: 1.7,
     fontFamily: "inherit",
+    boxShadow: "inset 0 1px 2px rgba(24, 31, 24, 0.04)",
   },
   pillGroup: {
     display: "flex",
@@ -101,20 +158,22 @@ const pageStyles: Record<string, CSSProperties> = {
   pill: {
     padding: "10px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(215, 223, 214, 0.96)",
-    background: "#f6f8f6",
-    color: "#5f6660",
+    border: "1px solid rgba(214, 220, 214, 0.96)",
+    background: "#ffffff",
+    color: "#5d655d",
     cursor: "pointer",
+    transition: "all 160ms ease",
   },
   pillActive: {
-    background: "rgba(231, 248, 221, 0.96)",
-    color: "#17320b",
-    border: "1px solid rgba(149, 236, 105, 0.58)",
+    background: "rgba(233, 243, 237, 0.96)",
+    color: "#234f3a",
+    border: "1px solid rgba(47, 107, 79, 0.28)",
+    boxShadow: "0 6px 18px rgba(47, 107, 79, 0.08)",
   },
   select: {
     width: "100%",
-    borderRadius: 14,
-    border: "1px solid rgba(215, 223, 214, 0.96)",
+    borderRadius: 16,
+    border: "1px solid rgba(214, 220, 214, 0.96)",
     background: "#ffffff",
     color: "#1f1f1f",
     padding: "12px 14px",
@@ -122,15 +181,16 @@ const pageStyles: Record<string, CSSProperties> = {
   },
   status: {
     padding: "12px 14px",
-    borderRadius: 14,
-    background: "rgba(231, 248, 221, 0.96)",
-    color: "#356d22",
+    borderRadius: 16,
+    background: "rgba(243, 245, 243, 0.96)",
+    border: "1px solid rgba(214, 220, 214, 0.96)",
+    color: "#4d5750",
     fontSize: 13,
     lineHeight: 1.6,
   },
   error: {
     padding: "12px 14px",
-    borderRadius: 14,
+    borderRadius: 16,
     background: "rgba(255, 241, 241, 0.96)",
     color: "#bf5d5d",
     fontSize: 13,
@@ -143,29 +203,30 @@ const pageStyles: Record<string, CSSProperties> = {
   },
   primaryButton: {
     padding: "12px 18px",
-    borderRadius: 12,
-    border: "none",
-    background: "#95ec69",
-    color: "#17320b",
+    borderRadius: 14,
+    border: "1px solid rgba(47, 107, 79, 0.22)",
+    background: "linear-gradient(180deg, #3b7c5a 0%, #2f6b4f 100%)",
+    color: "#ffffff",
     fontSize: 15,
     fontWeight: 600,
     cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(47, 107, 79, 0.18)",
   },
   secondaryButton: {
     padding: "12px 18px",
-    borderRadius: 12,
-    border: "1px solid rgba(215, 223, 214, 0.96)",
-    background: "#f6f8f6",
+    borderRadius: 14,
+    border: "1px solid rgba(214, 220, 214, 0.96)",
+    background: "#ffffff",
     color: "#1f1f1f",
     fontSize: 15,
     cursor: "pointer",
   },
   tertiaryButton: {
     padding: "12px 18px",
-    borderRadius: 12,
-    border: "1px dashed rgba(149, 236, 105, 0.52)",
-    background: "rgba(231, 248, 221, 0.72)",
-    color: "#356d22",
+    borderRadius: 14,
+    border: "1px dashed rgba(107, 44, 55, 0.24)",
+    background: "rgba(247, 243, 244, 0.96)",
+    color: "#673340",
     fontSize: 15,
     cursor: "pointer",
   },
@@ -315,15 +376,25 @@ export default function TranslatorPage() {
     <main style={pageStyles.page}>
       <div style={pageStyles.shell}>
         <section style={pageStyles.hero}>
-          <p style={pageStyles.eyebrow}>Translator Console</p>
+          <div style={pageStyles.heroTopLine}>
+            <p style={pageStyles.eyebrow}>Translator Console</p>
+            <span style={pageStyles.heroBadge}>潜台词取证中</span>
+          </div>
           <h1 style={pageStyles.title}>把没说出口的话，翻译成人话</h1>
           <p style={pageStyles.description}>
-            输入一段对话，系统会先尝试调用翻译接口；若接口不可用，则自动降级到本地规则与默认分享短句，保证报告卡始终可生成。
+            像在整理一段聊天证物。系统会拆出潜台词、锋利直译和更好的表达，让那些被压低、撤回、假装没事的话重新显形。
           </p>
+          <div style={pageStyles.heroWarning}>
+            异常提示：有些句子表面是安静的，真正吓人的部分在它没有说出来的地方。
+          </div>
         </section>
 
         <section style={pageStyles.grid}>
           <form style={pageStyles.panel} onSubmit={handleSubmit}>
+            <div>
+              <h2 style={pageStyles.panelTitle}>聊天样本</h2>
+              <p style={pageStyles.panelIntro}>左侧录入聊天记录，右侧生成拆解报告与行动建议。</p>
+            </div>
             <div style={pageStyles.field}>
               <label htmlFor="translator-chat" style={pageStyles.label}>
                 对话内容
@@ -461,6 +532,7 @@ export default function TranslatorPage() {
             <TranslationReportCard
               report={activeReport}
               shareCardData={activeShareCardData}
+              conversationText={chatText}
               usedFallback={latestResult?.usedFallback ?? false}
               shareLineUsedFallback={latestResult?.shareLineUsedFallback ?? false}
               notices={statusNotices}

@@ -25,26 +25,36 @@ export function StartPage() {
   );
 
   return (
-    <main className="screen">
-      <section className="shell page page-body stack">
-        <p className="tiny">互动叙事游戏 / 开发者 A 的主链路实现</p>
-        <h1 className="hero-title">过拟合恋人</h1>
-        <p className="hero-subtitle">
-          前半段是恋爱聊天，后半段是被你自己没说出口的话反过来追上来。
-        </p>
-
-        <div className="card stack">
-          <strong>当前版本包含</strong>
-          <span className="meta-copy">
-            开始页、聊天主链路、关键词污染、草稿监听、读档三态、空间异常、真相页与梦醒页。
-          </span>
+    <main className="screen home-page">
+      <section className="shell page page-body stack home-shell">
+        <div className="home-hero-stack">
+          <p className="tiny">互动叙事聊天实验 / CHAT LOG 01</p>
+          <h1 className="hero-title">过拟合恋人</h1>
+          <p className="hero-subtitle">
+            像微信一样熟悉的聊天界面里，藏着一段会自己增殖的关系记录。
+            你删掉的话、没发出的草稿、说轻了的情绪，都会在后半段重新回来找你。
+          </p>
+          <div className="home-signal-strip" aria-label="异常提示">
+            <span className="home-signal-chip">聊天记录会失真</span>
+            <span className="home-signal-chip">草稿会被记住</span>
+            <span className="home-signal-chip danger">有些句子不会自己消失</span>
+          </div>
         </div>
 
-        <div className="card stack">
-          <strong>体验提醒</strong>
-          <span className="meta-copy">
-            这是一个明确标注的互动叙事游戏。不会调用真实定位、通讯录或后台监听。
-          </span>
+        <div className="home-panel-grid">
+          <div className="card stack home-info-card">
+            <strong>你会经历什么</strong>
+            <span className="meta-copy">
+              从普通恋爱聊天开始，逐步进入关键词污染、草稿监听、读档失控、空间异常和真相反噬。
+            </span>
+          </div>
+
+          <div className="card stack home-info-card">
+            <strong>体验边界</strong>
+            <span className="meta-copy">
+              这是明确标注的互动叙事游戏。不会调用真实定位、通讯录或后台监听，但会模拟它们带来的不安感。
+            </span>
+          </div>
         </div>
 
         <div className="stack">
@@ -79,8 +89,8 @@ export function StartPage() {
           </div>
         </div>
 
-        <div className="card">
-          <strong>当前效果</strong>
+        <div className="card home-effect-card">
+          <strong>当前心理底色</strong>
           <p className="meta-copy">{selectedCopy}</p>
         </div>
 
