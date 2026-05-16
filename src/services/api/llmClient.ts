@@ -87,6 +87,25 @@ function extractJson<T>(raw: string): T {
   return JSON.parse(jsonMatch[0]) as T;
 }
 
+function shouldRetryWithoutJsonMode(status: number, errorText: string): boolean {
+  if (![400, 404, 415, 422].includes(status)) {
+    return false;
+  }
+
+  const normalized = errorText.toLowerCase();
+  const indicators = [
+    "response_format",
+    "json_object",
+    "json schema",
+    "json mode",
+    "unsupported",
+    "not support",
+    "invalid parameter",
+  ];
+
+  return indicators.some((indicator) => normalized.includes(indicator));
+}
+
 function buildLoveTranslateMessages(
   chatText: string,
   context?: LoveTranslateRequest["context"],
@@ -148,7 +167,10 @@ function extractShareLineJson(raw: string): string {
   return shareLine;
 }
 
-async function requestChatCompletion(messages: Array<{ role: "system" | "user"; content: string }>) {
+async function requestChatCompletionOnce(
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  forceJsonMode: boolean,
+) {
   const apiKey = getEnvValue("VITE_LLM_API_KEY");
 
   if (!apiKey) {
@@ -157,23 +179,35 @@ async function requestChatCompletion(messages: Array<{ role: "system" | "user"; 
 
   const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
   const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
+  const requestBody: Record<string, unknown> = {
+    model,
+    temperature: 0.65,
+    max_tokens: 140,
+    messages,
+  };
+
+  if (forceJsonMode) {
+    requestBody.response_format = { type: "json_object" };
+  }
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      temperature: 0.65,
-      max_tokens: 140,
-      messages
-    })
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`LLM request failed: ${response.status} ${errorText}`);
+    const error = new Error(`LLM request failed: ${response.status} ${errorText}`);
+    Object.assign(error, {
+      status: response.status,
+      errorText,
+      forceJsonMode,
+    });
+    throw error;
   }
 
   const data = (await response.json()) as ChatCompletionResponse;
@@ -189,6 +223,26 @@ async function requestChatCompletion(messages: Array<{ role: "system" | "user"; 
   }
 
   return rawContent;
+}
+
+async function requestChatCompletion(messages: Array<{ role: "system" | "user"; content: string }>) {
+  try {
+    return await requestChatCompletionOnce(messages, true);
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === "number"
+      ? ((error as { status: number }).status)
+      : 0;
+    const errorText = typeof (error as { errorText?: unknown })?.errorText === "string"
+      ? ((error as { errorText: string }).errorText)
+      : "";
+    const forceJsonMode = Boolean((error as { forceJsonMode?: unknown })?.forceJsonMode);
+
+    if (forceJsonMode && shouldRetryWithoutJsonMode(status, errorText)) {
+      return requestChatCompletionOnce(messages, false);
+    }
+
+    throw error;
+  }
 }
 
 export async function generateTaReply(request: TaReplyRequest): Promise<TaReplyResponse> {

@@ -82,7 +82,8 @@ function createInitialMockConversations(): Record<string, MockConversation> {
 function ChatSidebarIcon() {
   return (
     <svg className="desktop-sidebar-svg chat" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 5.5h8.5a5.5 5.5 0 0 1 0 11H11l-4.2 3v-3.5A5.5 5.5 0 0 1 6 5.5Z" />
+      <rect x="4.5" y="5" width="15" height="13.5" rx="4.2" />
+      <circle cx="12" cy="11.75" r="2.55" />
     </svg>
   );
 }
@@ -95,6 +96,15 @@ function SpaceSidebarIcon() {
       <path d="M4.8 12h14.4" />
       <path d="M7.2 7.2c1.5 1 3.1 1.5 4.8 1.5s3.3-.5 4.8-1.5" />
       <path d="M7.2 16.8c1.5-1 3.1-1.5 4.8-1.5s3.3.5 4.8 1.5" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="desktop-search-svg" viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="8.5" cy="8.5" r="4.5" />
+      <path d="M12 12l4 4" />
     </svg>
   );
 }
@@ -360,7 +370,9 @@ export function ChatPage() {
         <aside className="desktop-chat-list">
           <header className="desktop-chat-list-header">
             <label className="desktop-search">
-              <span className="desktop-search-icon">搜</span>
+              <span className="desktop-search-icon">
+                <SearchIcon />
+              </span>
               <input
                 type="text"
                 placeholder="搜索"
@@ -387,6 +399,7 @@ export function ChatPage() {
                     <strong>{item.name}</strong>
                     <time>{item.time}</time>
                   </span>
+                  <span className="desktop-conversation-subtitle">{item.subtitle}</span>
                   <span className="desktop-conversation-preview">{item.preview}</span>
                 </span>
               </button>
