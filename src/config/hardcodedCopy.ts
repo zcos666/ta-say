@@ -77,13 +77,13 @@ export const storyCopy = {
     const name = pronoun ?? "TA";
     return [
       "早安。昨晚你说的话，我都记得。",
-      `醒了吗？从现在开始，先让我用${name}的身份陪你聊天。`
+      `醒了吗？你昨晚把我的备注改成什么了？`
     ];
   },
   // introduction 阶段下方插入的空间提醒文案。
   introSpaceNotice: (pronoun: "他" | "她" | "TA" | null) => {
     const name = pronoun ?? "TA";
-    return `${name} 刚刚更新了空间：今天也想被好好理解一次。`;
+    return `${name} 刚刚更新了空间：官宣！`;
   },
   // 真相页逐句显示的硬编码脚本。
   truthLines: [
@@ -160,10 +160,18 @@ export const uiCopy = {
 } as const;
 
 export const exitCopy = {
-  // 第一次点击右上角关闭按钮时弹出的确认层标题。
-  firstDialogTitle: "确定退出吗？",
-  // 第一次点击右上角关闭按钮时弹出的确认层说明。
-  firstDialogBody: "你现在离开的话，这段对话会停在这里。你确定要走吗？",
+  // 右上角关闭按钮确认层在不同退出阶段显示的标题。
+  dialogTitles: {
+    default: "确定退出吗？",
+    warning: "你确定？",
+    locked: "你还是想走？"
+  },
+  // 右上角关闭按钮确认层在不同退出阶段显示的说明。
+  dialogBodies: {
+    default: "你现在离开的话，这段对话会停在这里。你确定要走吗？",
+    warning: "你刚刚已经想退出过一次了。现在再走，就不是手滑了。",
+    locked: "你已经退出过一次了。可你还是在点这个按钮。你到底想从这里逃开什么？"
+  },
   // 确认层里的主按钮文案，点击后不会真正退出，而是进入退出异常互动。
   confirmLabel: "退出",
   // 确认层里的次按钮文案，仅关闭弹层。

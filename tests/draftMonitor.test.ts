@@ -13,6 +13,7 @@ describe("draftMonitor", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
   });
 
   afterEach(() => {
@@ -21,10 +22,13 @@ describe("draftMonitor", () => {
       useAppStore.setState({
         hydrated: false,
         isReplying: false,
+        isTaTyping: false,
+        pendingUserMessages: [],
         session: createEmptySession()
       });
     });
     vi.clearAllTimers();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -35,15 +39,15 @@ describe("draftMonitor", () => {
     expect(extractDeletedDraftSegment("我其实很难过", "我其实很难")).toBe("过");
   });
 
-  it("删除至少三个字时在停止删除后插入硬编码回复，不调用 LLM", () => {
+  it("删除至少三个字时在停止删除后插入硬编码回复，不调用 LLM", async () => {
     act(() => {
       useAppStore.getState().updateDraft("我其实很难过", "", { isDeleting: true });
     });
 
     expect(useAppStore.getState().session.chatHistory).toEqual([]);
 
-    act(() => {
-      vi.advanceTimersByTime(500);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
     });
 
     const session = useAppStore.getState().session;
@@ -68,7 +72,7 @@ describe("draftMonitor", () => {
     expect(session.chatHistory).toEqual([]);
   });
 
-  it("短时间内连续逐字删除会累计为一次删稿", () => {
+  it("短时间内连续逐字删除会累计为一次删稿", async () => {
     act(() => {
       useAppStore.getState().updateDraft("我其实很难过", "我其实很难", {
         isDeleting: true,
@@ -88,8 +92,8 @@ describe("draftMonitor", () => {
 
     expect(useAppStore.getState().session.chatHistory).toEqual([]);
 
-    act(() => {
-      vi.advanceTimersByTime(500);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
     });
 
     const session = useAppStore.getState().session;

@@ -36,6 +36,16 @@ interface ChatCompletionStreamResponse {
   };
 }
 
+interface ChatCompletionOptions {
+  temperature: number;
+  maxTokens: number;
+  preferJsonMode?: boolean;
+}
+
+interface ChatCompletionStreamOptions extends ChatCompletionOptions {
+  onChunk: (chunk: string) => void;
+}
+
 function getEnvValue(key: "VITE_LLM_API_KEY" | "VITE_LLM_BASE_URL" | "VITE_LLM_MODEL"): string {
   return (import.meta.env[key] as string | undefined)?.trim() ?? "";
 }
@@ -180,6 +190,7 @@ function extractShareLineJson(raw: string): string {
 
 async function requestChatCompletionOnce(
   messages: Array<{ role: "system" | "user"; content: string }>,
+  options: ChatCompletionOptions,
   forceJsonMode: boolean,
 ) {
   const apiKey = getEnvValue("VITE_LLM_API_KEY");
@@ -192,8 +203,8 @@ async function requestChatCompletionOnce(
   const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
   const requestBody: Record<string, unknown> = {
     model,
-    temperature: 0.65,
-    max_tokens: 140,
+    temperature: options.temperature,
+    max_tokens: options.maxTokens,
     messages,
   };
 
@@ -236,24 +247,146 @@ async function requestChatCompletionOnce(
   return rawContent;
 }
 
-async function requestChatCompletion(messages: Array<{ role: "system" | "user"; content: string }>) {
+async function requestChatCompletion(
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  options: ChatCompletionOptions,
+) {
+  if (!options.preferJsonMode) {
+    return requestChatCompletionOnce(messages, options, false);
+  }
+
   try {
-    return await requestChatCompletionOnce(messages, true);
+    return await requestChatCompletionOnce(messages, options, true);
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === "number"
-      ? ((error as { status: number }).status)
+      ? (error as { status: number }).status
       : 0;
     const errorText = typeof (error as { errorText?: unknown })?.errorText === "string"
-      ? ((error as { errorText: string }).errorText)
+      ? (error as { errorText: string }).errorText
       : "";
     const forceJsonMode = Boolean((error as { forceJsonMode?: unknown })?.forceJsonMode);
 
     if (forceJsonMode && shouldRetryWithoutJsonMode(status, errorText)) {
-      return requestChatCompletionOnce(messages, false);
+      return requestChatCompletionOnce(messages, options, false);
     }
 
     throw error;
   }
+}
+
+function extractStreamDeltaContent(content: ChatCompletionStreamChoice["delta"] extends { content?: infer T } ? T : never) {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => part.text?.trim() ?? "")
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return "";
+}
+
+async function requestChatCompletionStream(
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  options: ChatCompletionStreamOptions,
+) {
+  const apiKey = getEnvValue("VITE_LLM_API_KEY");
+
+  if (!apiKey) {
+    throw new Error("Missing VITE_LLM_API_KEY.");
+  }
+
+  const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
+  const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+      stream: true,
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LLM stream request failed: ${response.status} ${errorText}`);
+  }
+
+  if (!response.body) {
+    throw new Error("LLM stream response body is empty.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let rawContent = "";
+  let buffer = "";
+
+  const processLine = (line: string) => {
+    const trimmed = line.trim();
+
+    if (!trimmed || !trimmed.startsWith("data:")) {
+      return false;
+    }
+
+    const data = trimmed.slice(5).trim();
+
+    if (data === "[DONE]") {
+      return true;
+    }
+
+    const parsed = JSON.parse(data) as ChatCompletionStreamResponse;
+
+    if (parsed.error?.message) {
+      throw new Error(parsed.error.message);
+    }
+
+    const chunk = extractStreamDeltaContent(parsed.choices?.[0]?.delta?.content);
+
+    if (!chunk) {
+      return false;
+    }
+
+    rawContent += chunk;
+    options.onChunk(chunk);
+    return false;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (processLine(line)) {
+        return rawContent;
+      }
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  if (buffer.trim()) {
+    processLine(buffer);
+  }
+
+  if (!rawContent) {
+    throw new Error("LLM stream returned empty content.");
+  }
+
+  return rawContent;
 }
 
 export async function generateTaReply(request: TaReplyRequest): Promise<TaReplyResponse> {
@@ -357,6 +490,7 @@ async function loveTranslate(
   ], {
     temperature: 0.55,
     maxTokens: 180,
+    preferJsonMode: true,
   });
 
   return extractJson<LoveTranslationReport>(rawContent);
@@ -380,6 +514,7 @@ async function shareLine(payload: ShareLineRequest): Promise<ShareLineResponse |
   ], {
     temperature: 0.7,
     maxTokens: 48,
+    preferJsonMode: true,
   });
 
   return {

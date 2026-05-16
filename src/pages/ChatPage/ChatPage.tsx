@@ -187,6 +187,18 @@ export function ChatPage() {
   }, []);
 
   const latestMessage = session.chatHistory[session.chatHistory.length - 1];
+  const exitDialogTitle =
+    session.exitClickCount >= 2
+      ? exitCopy.dialogTitles.locked
+      : session.exitClickCount >= 1
+        ? exitCopy.dialogTitles.warning
+        : exitCopy.dialogTitles.default;
+  const exitDialogBody =
+    session.exitClickCount >= 2
+      ? exitCopy.dialogBodies.locked
+      : session.exitClickCount >= 1
+        ? exitCopy.dialogBodies.warning
+        : exitCopy.dialogBodies.default;
 
   const conversationItems = useMemo(() => {
     const storyPreviewText = latestMessage?.displayedText ?? "开始新的聊天";
@@ -499,7 +511,7 @@ export function ChatPage() {
                       : exitCopy.closeButtonTitles.default
                 }
                 onClick={() => {
-                  if (currentConversation.isStory && session.exitClickCount === 0) {
+                  if (currentConversation.isStory) {
                     setShowExitDialog(true);
                     return;
                   }
@@ -647,9 +659,9 @@ export function ChatPage() {
                 onClick={(event) => event.stopPropagation()}
               >
                 <h2 id="exit-dialog-title" className="desktop-exit-dialog-title">
-                  {exitCopy.firstDialogTitle}
+                  {exitDialogTitle}
                 </h2>
-                <p className="desktop-exit-dialog-body">{exitCopy.firstDialogBody}</p>
+                <p className="desktop-exit-dialog-body">{exitDialogBody}</p>
                 <div className="desktop-exit-dialog-actions">
                   <button
                     className="desktop-header-button"
