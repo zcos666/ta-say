@@ -1,4 +1,4 @@
-import type { LoveTranslationReport, ShareCardData } from "./api";
+import type { LoveTranslationReport } from "./api";
 import type { FearType, StoryStage, TaPronoun } from "./story";
 
 export interface ChatMessage {
@@ -10,6 +10,16 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface ShareCardData {
+  endingType: string;
+  hardestSentence: string;
+  shareLine: string;
+  fearType: FearType | null;
+  pollutionCount: number;
+  deletedDraftCount: number;
+  loadCount: number;
+  aiTranslation: string;
+}
 export interface SessionState {
   fearType: FearType | null;
   taPronoun: TaPronoun | null;
@@ -29,6 +39,7 @@ export interface SessionState {
   activeTimedPollution: boolean;
   hasFinishedGame: boolean;
   endingType: string | null;
+  hardestSentence: string;
   translatorReport?: LoveTranslationReport;
   shareCardData?: ShareCardData;
 }
@@ -45,7 +56,6 @@ export interface SessionSnapshot {
   sendCount: number;
   activeTimedPollution: boolean;
 }
-
 export interface PersistedState {
   hasFinishedGame: boolean;
   autoSaveSnapshot?: SessionSnapshot;
@@ -62,7 +72,7 @@ function createId() {
 export function createChatMessage(
   role: ChatMessage["role"],
   displayedText: string,
-  options: Partial<Pick<ChatMessage, "originalText" | "kind">> = {}
+  options: Partial<Pick<ChatMessage, "originalText" | "kind">> = {},
 ): ChatMessage {
   return {
     id: createId(),
@@ -70,7 +80,7 @@ export function createChatMessage(
     displayedText,
     originalText: options.originalText,
     kind: options.kind ?? "normal",
-    timestamp: Date.now()
+    timestamp: Date.now(),
   };
 }
 
@@ -93,6 +103,15 @@ export function createEmptySession(): SessionState {
     exitClickCount: 0,
     activeTimedPollution: false,
     hasFinishedGame: false,
-    endingType: null
+    endingType: null,
+    hardestSentence: "",
   };
+}
+
+export interface SessionStore extends SessionState {
+  resetSession: () => void;
+  patchSession: (patch: Partial<SessionState>) => void;
+  saveTranslatorReport: (report: LoveTranslationReport) => void;
+  saveShareCardData: (data: ShareCardData) => void;
+  unlockTranslator: () => void;
 }

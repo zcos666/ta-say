@@ -24,3 +24,4 @@ export type StoryEvent =
   | "load_failed"
   | "space_glitch"
   | "exit_blocked";
+export const ENTRANCE_STAGE: StoryStage = "translator_unlocked";
