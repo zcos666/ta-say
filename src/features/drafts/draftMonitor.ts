@@ -26,7 +26,7 @@ function extractDeletedSegment(previousValue: string, nextValue: string): string
   return previousValue.slice(prefixLength, previousSuffixIndex + 1).trim();
 }
 
-export function captureDeletedDraft(previousValue: string, nextValue: string): string | null {
+export function extractDeletedDraftSegment(previousValue: string, nextValue: string): string | null {
   const prev = previousValue.trim();
   const next = nextValue.trim();
 
@@ -36,7 +36,13 @@ export function captureDeletedDraft(previousValue: string, nextValue: string): s
 
   const deletedSegment = extractDeletedSegment(previousValue, nextValue);
 
-  if (deletedSegment.length < MIN_DELETED_LENGTH) {
+  return deletedSegment || null;
+}
+
+export function captureDeletedDraft(previousValue: string, nextValue: string): string | null {
+  const deletedSegment = extractDeletedDraftSegment(previousValue, nextValue);
+
+  if (!deletedSegment || deletedSegment.length < MIN_DELETED_LENGTH) {
     return null;
   }
 

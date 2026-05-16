@@ -6,7 +6,7 @@ export interface ChatMessage {
   role: "user" | "ta" | "system";
   originalText?: string;
   displayedText: string;
-  kind?: "normal" | "polluted" | "warning" | "glitch" | "space_notice" | "location_notice";
+  kind?: "normal" | "polluted" | "warning" | "glitch" | "space_notice" | "location_notice" | "pending";
   timestamp: number;
 }
 

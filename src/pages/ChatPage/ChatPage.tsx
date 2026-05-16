@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store/useAppStore";
-import { mockChatCopy, rollbackCopy } from "../../config/hardcodedCopy";
+import { exitCopy, mockChatCopy, rollbackCopy } from "../../config/hardcodedCopy";
 import { getStageStatus } from "../../features/story/stageConfig";
 import type { ChatMessage } from "../../types/session";
 
@@ -103,6 +103,8 @@ export function ChatPage() {
   const navigate = useNavigate();
   const session = useAppStore((state) => state.session);
   const isReplying = useAppStore((state) => state.isReplying);
+  const isTaTyping = useAppStore((state) => state.isTaTyping);
+  const pendingUserMessages = useAppStore((state) => state.pendingUserMessages);
   const sendMessage = useAppStore((state) => state.sendMessage);
   const updateDraft = useAppStore((state) => state.updateDraft);
   const rollbackToMessage = useAppStore((state) => state.rollbackToMessage);
@@ -117,11 +119,15 @@ export function ChatPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedConversationId, setSelectedConversationId] = useState("z");
   const [mockReplyingConversationId, setMockReplyingConversationId] = useState<string | null>(null);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [mockConversations, setMockConversations] = useState<Record<string, MockConversation>>(() =>
     createInitialMockConversations()
   );
   const streamRef = useRef<HTMLDivElement | null>(null);
   const pendingTimersRef = useRef<number[]>([]);
+  const toastTimerRef = useRef<number | null>(null);
+  const lastToastMessageIdRef = useRef<string | null>(null);
+  const [systemToast, setSystemToast] = useState<ChatMessage | null>(null);
 
   useEffect(() => {
     if (!session.fearType || !session.taPronoun) {
@@ -164,6 +170,9 @@ export function ChatPage() {
   useEffect(() => {
     return () => {
       pendingTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
     };
   }, []);
 
@@ -214,7 +223,7 @@ export function ChatPage() {
         isStory: true,
         view: "chat" as const,
         articles: [],
-        messages: session.chatHistory
+        messages: [...session.chatHistory, ...pendingUserMessages]
       };
     }
 
@@ -236,7 +245,7 @@ export function ChatPage() {
       articles: [],
       messages: session.chatHistory
     };
-  }, [getStageStatus, mockConversations, selectedConversationId, session.chatHistory, session.stage]);
+  }, [getStageStatus, mockConversations, pendingUserMessages, selectedConversationId, session.chatHistory, session.stage]);
 
   useEffect(() => {
     const node = streamRef.current;
@@ -246,6 +255,38 @@ export function ChatPage() {
     node.scrollTop = node.scrollHeight;
   }, [currentConversation.messages, selectedConversationId]);
 
+  useEffect(() => {
+    if (currentConversation.id !== "z") {
+      setSystemToast(null);
+      lastToastMessageIdRef.current = null;
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      return;
+    }
+
+    const latestSystemNotice = [...currentConversation.messages]
+      .reverse()
+      .find((message) => message.role === "system" && (message.kind === "warning" || message.kind === "glitch"));
+
+    if (!latestSystemNotice || lastToastMessageIdRef.current === latestSystemNotice.id) {
+      return;
+    }
+
+    lastToastMessageIdRef.current = latestSystemNotice.id;
+    setSystemToast(latestSystemNotice);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setSystemToast((current) => (current?.id === latestSystemNotice.id ? null : current));
+      toastTimerRef.current = null;
+    }, 3200);
+  }, [currentConversation.id, currentConversation.messages]);
+
   function handleSend() {
     const nextDraft = draft.trim();
     const isStoryConversation = currentConversation.id === "z";
@@ -253,7 +294,7 @@ export function ChatPage() {
       isStoryConversation &&
       (session.stage === "location_reveal" || session.stage === "location_aftermath");
     const isConversationBusy = isStoryConversation
-      ? isReplying || isStoryLocked
+      ? isStoryLocked
       : mockReplyingConversationId === currentConversation.id;
 
     if (!nextDraft || isConversationBusy) {
@@ -399,8 +440,8 @@ export function ChatPage() {
             <div>
               <h1 className="desktop-chat-title">{currentConversation.name}</h1>
               <p className="desktop-chat-subtitle">
-                {currentConversation.id === "z" && isReplying
-                  ? "正在输入..."
+                {currentConversation.id === "z" && (isReplying || isTaTyping)
+                  ? "对方正在输入中"
                   : currentConversation.id !== "z" && mockReplyingConversationId === currentConversation.id
                     ? "正在输入..."
                     : currentConversation.subtitle}
@@ -409,9 +450,9 @@ export function ChatPage() {
             <div className="desktop-chat-header-actions">
               {currentConversation.isStory ? (
                 <button
-                  className="desktop-header-button"
+                  className={`desktop-header-button${rollbackDisabled ? " rollback-alert" : ""}`}
                   type="button"
-                  disabled={rollbackDisabled}
+                  disabled={rollbackDisabled || isReplying || isTaTyping}
                   aria-label={
                     rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"
                   }
@@ -423,10 +464,35 @@ export function ChatPage() {
                     setRollbackMode((current) => !current);
                   }}
                 >
-                  {rollbackDisabled ? "🔒" : rollbackMode ? "×" : "↶"}
+                  {rollbackDisabled ? "读档？" : rollbackMode ? "取消读档" : "读档"}
                 </button>
               ) : null}
-              <button className="desktop-header-button icon windows-close-button" type="button" onClick={exitAttempt}>
+              <button
+                className="desktop-header-button icon windows-close-button"
+                type="button"
+                disabled={currentConversation.isStory && (isReplying || isTaTyping)}
+                aria-label={
+                  session.exitClickCount >= 2
+                    ? exitCopy.closeButtonTitles.locked
+                    : session.exitClickCount >= 1
+                      ? exitCopy.closeButtonTitles.warning
+                      : exitCopy.closeButtonTitles.default
+                }
+                title={
+                  session.exitClickCount >= 2
+                    ? exitCopy.closeButtonTitles.locked
+                    : session.exitClickCount >= 1
+                      ? exitCopy.closeButtonTitles.warning
+                      : exitCopy.closeButtonTitles.default
+                }
+                onClick={() => {
+                  if (currentConversation.isStory && session.exitClickCount === 0) {
+                    setShowExitDialog(true);
+                    return;
+                  }
+                  void exitAttempt();
+                }}
+              >
                 ×
               </button>
             </div>
@@ -495,6 +561,10 @@ export function ChatPage() {
                 );
               }
 
+              if (message.role === "system") {
+                return null;
+              }
+
               return (
                 <article
                   key={message.id}
@@ -506,15 +576,19 @@ export function ChatPage() {
                     </span>
                   ) : null}
 
+                  {message.role === "user" && message.kind === "pending" ? (
+                    <span className="desktop-message-pending-spinner" aria-label="等待发送" />
+                  ) : null}
+
                   <div className={`desktop-message-stack ${message.role}`}>
                     <div className={`desktop-message-bubble ${message.role}`}>
                       <span>{message.displayedText}</span>
                     </div>
-                    {currentConversation.isStory && rollbackMode && message.role !== "system" ? (
+                    {currentConversation.isStory && rollbackMode && message.role !== "system" && message.kind !== "pending" ? (
                       <button
                         className="desktop-message-rollback"
                         type="button"
-                        disabled={isReplying || rollbackDisabled}
+                        disabled={isReplying || isTaTyping || rollbackDisabled}
                         onClick={() => {
                           const confirmed = window.confirm("你是否要回退到当前版本？");
                           if (!confirmed) {
@@ -543,6 +617,49 @@ export function ChatPage() {
             )}
           </div>
 
+          {systemToast ? (
+            <div key={systemToast.id} className="desktop-system-toast" role="status" aria-live="polite">
+              <span className="desktop-system-toast-badge">系</span>
+              <span className="desktop-system-toast-copy">{systemToast.displayedText}</span>
+            </div>
+          ) : null}
+
+          {showExitDialog ? (
+            <div className="desktop-overlay-backdrop" role="presentation" onClick={() => setShowExitDialog(false)}>
+              <div
+                className="desktop-exit-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="exit-dialog-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h2 id="exit-dialog-title" className="desktop-exit-dialog-title">
+                  {exitCopy.firstDialogTitle}
+                </h2>
+                <p className="desktop-exit-dialog-body">{exitCopy.firstDialogBody}</p>
+                <div className="desktop-exit-dialog-actions">
+                  <button
+                    className="desktop-header-button"
+                    type="button"
+                    onClick={() => {
+                      setShowExitDialog(false);
+                      void exitAttempt();
+                    }}
+                  >
+                    {exitCopy.confirmLabel}
+                  </button>
+                  <button
+                    className="desktop-header-button"
+                    type="button"
+                    onClick={() => setShowExitDialog(false)}
+                  >
+                    {exitCopy.stayLabel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {currentConversation.view !== "articles" ? (
             <footer className="desktop-chat-composer">
             <div className="desktop-composer-editor">
@@ -552,7 +669,7 @@ export function ChatPage() {
                   placeholder={`给${currentConversation.name}发消息`}
                   disabled={
                     currentConversation.id === "z"
-                      ? isReplying || session.stage === "location_reveal" || session.stage === "location_aftermath"
+                      ? session.stage === "location_reveal" || session.stage === "location_aftermath"
                       : mockReplyingConversationId === currentConversation.id
                   }
                   value={draft}
@@ -566,7 +683,13 @@ export function ChatPage() {
 
                     updateDraft(draft, nextValue, {
                       isDeleting,
+                      deletionType:
+                        inputType === "deleteContentBackward" || inputType === "deleteContentForward"
+                          ? inputType
+                          : "",
                       isComposing: Boolean(nativeEvent.isComposing)
+                      ,
+                      timestamp: Date.now()
                     });
                     setDraft(nextValue);
                   }}
@@ -578,15 +701,13 @@ export function ChatPage() {
                 type="button"
                 disabled={
                   currentConversation.id === "z"
-                    ? isReplying || session.stage === "location_reveal" || session.stage === "location_aftermath"
+                    ? session.stage === "location_reveal" || session.stage === "location_aftermath"
                     : mockReplyingConversationId === currentConversation.id
                 }
                 onClick={handleSend}
               >
                 {currentConversation.id === "z"
-                  ? isReplying
-                    ? "发送中"
-                    : "发送"
+                  ? "发送"
                   : mockReplyingConversationId === currentConversation.id
                     ? "发送中"
                     : "发送"}

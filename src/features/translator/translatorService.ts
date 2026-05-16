@@ -278,15 +278,17 @@ export async function translateConversation(
   input: TranslateConversationInput,
 ): Promise<TranslateConversationResult> {
   const chatText = normalizeText(input.chatText) || defaultMockChat;
-  const reportResult = await resolveRemoteReport(chatText, input.fearType, input.taPronoun);
   const originalSentence = extractOriginalSentence(chatText);
-  const shareLineResult = await resolveShareLine(
-    input.endingType,
-    originalSentence,
-    input.pollutionCount,
-    input.deletedDraftCount,
-    input.loadCount,
-  );
+  const [reportResult, shareLineResult] = await Promise.all([
+    resolveRemoteReport(chatText, input.fearType, input.taPronoun),
+    resolveShareLine(
+      input.endingType,
+      originalSentence,
+      input.pollutionCount,
+      input.deletedDraftCount,
+      input.loadCount,
+    )
+  ]);
 
   const notices = [reportResult.notice, shareLineResult.notice].filter(
     (notice): notice is string => Boolean(notice),

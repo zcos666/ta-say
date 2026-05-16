@@ -455,6 +455,7 @@ input {
 .desktop-chat-main {
   min-width: 0;
   min-height: 0;
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   background: #f5f5f5;
@@ -499,9 +500,58 @@ input {
   border: 1px solid #e6e6e6;
 }
 
+.desktop-header-button.rollback-alert,
+.desktop-header-button.rollback-alert:disabled {
+  background: #fff1f1;
+  color: #d84b4b;
+  border-color: #f0b6b6;
+  opacity: 1;
+}
+
 .desktop-header-button.icon {
   min-width: 32px;
   padding: 0 10px;
+}
+
+.desktop-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(18, 18, 18, 0.2);
+  backdrop-filter: blur(2px);
+}
+
+.desktop-exit-dialog {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e6e6e6;
+  box-shadow: 0 12px 32px rgba(31, 31, 31, 0.16);
+}
+
+.desktop-exit-dialog-title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--color-text);
+}
+
+.desktop-exit-dialog-body {
+  margin: 0;
+  line-height: 1.7;
+  color: #6a6a6a;
+}
+
+.desktop-exit-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .windows-close-button {
@@ -539,7 +589,10 @@ input {
 
 .space-cover-image {
   height: 240px;
-  background: #dadada;
+  background-image: url("https://picsum.photos/seed/overspec-lover-cover/1600/720");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .space-cover-meta {
@@ -750,22 +803,28 @@ input {
 
 .space-feed-image-tile {
   aspect-ratio: 4 / 3;
-  display: grid;
-  align-content: space-between;
-  padding: 14px;
+  position: relative;
+  overflow: hidden;
   border-radius: 18px;
   background: #ececec;
   border: 1px solid #e3e3e3;
 }
 
-.space-feed-image-tile span {
-  font-size: 14px;
-  font-weight: 700;
-  color: #3c3c3c;
+.space-feed-image-tile img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .space-feed-image-tile small {
-  color: #8a928a;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #6d6d6d;
 }
 
 .space-feed-card-footer {
@@ -790,6 +849,60 @@ input {
   min-height: 0;
   padding: 18px 24px 20px;
   overscroll-behavior: contain;
+}
+
+.desktop-system-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 132px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100% - 48px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.92);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  animation: desktop-system-toast-fade 3.2s ease forwards;
+}
+
+.desktop-system-toast-badge {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.desktop-system-toast-copy {
+  line-height: 1.6;
+}
+
+@keyframes desktop-system-toast-fade {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+
+  12%,
+  72% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
 }
 
 .favorite-article-feed {
@@ -943,6 +1056,16 @@ input {
   justify-content: flex-end;
 }
 
+.desktop-message-pending-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(17, 17, 17, 0.14);
+  border-top-color: rgba(17, 17, 17, 0.7);
+  animation: desktop-spin 0.8s linear infinite;
+}
+
 .desktop-message-row.is-grouped {
   margin-top: 6px;
 }
@@ -1032,6 +1155,16 @@ input {
   margin-top: 6px;
   font-size: 11px;
   color: #9a9a9a;
+}
+
+@keyframes desktop-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .desktop-message-rollback {
@@ -1190,6 +1323,11 @@ input {
     min-height: 0;
   }
 
+  .desktop-system-toast {
+    bottom: 110px;
+    max-width: calc(100% - 32px);
+  }
+
   .desktop-chat-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1294,6 +1432,14 @@ input {
 
   .desktop-enter-hint {
     display: none;
+  }
+
+  .desktop-system-toast {
+    left: 16px;
+    right: 16px;
+    bottom: 96px;
+    transform: none;
+    max-width: none;
   }
 
   .space-feed-screen {

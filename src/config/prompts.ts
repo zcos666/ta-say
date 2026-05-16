@@ -64,7 +64,8 @@ function createCommonUserContext(request: TaReplyRequest): string[] {
     `玩家原话：${request.originalInput?.trim() || "无"}`,
     `玩家实际发出的文本：${request.pollutedInput?.trim() || "无"}`,
     `本轮必须输出：${request.desiredReplyLineCount}句`,
-    '只输出 JSON，格式固定为 {"reply":["句子1","句子2"]}。'
+    "只输出纯文本聊天消息，不要 JSON，不要代码块，不要编号，不要引号，不要解释。",
+    "每一句单独占一行，总行数必须严格等于要求的句数。"
   ];
 }
 

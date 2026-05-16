@@ -1,12 +1,13 @@
 import { create } from "zustand";
-import { captureDeletedDraft } from "../../features/drafts/draftMonitor";
+import { extractDeletedDraftSegment } from "../../features/drafts/draftMonitor";
 import { buildPollutionResult } from "../../features/pollution/pollutionEngine";
-import { buildReply } from "../../features/reply/replyEngine";
-import { draftCopy, rollbackCopy, storyCopy, uiCopy } from "../../config/hardcodedCopy";
+import { buildReply, streamReply } from "../../features/reply/replyEngine";
+import { draftCopy, exitCopy, rollbackCopy, storyCopy, uiCopy } from "../../config/hardcodedCopy";
 import {
   createSnapshotFromMessage,
   restoreFromMessage
 } from "../../features/save-load/saveLoadManager";
+import { createIntroMessages } from "../../features/story/stageConfig";
 import { resolveEndingType } from "../../features/story/endingResolver";
 import { deriveNextStage } from "../../features/story/stateMachine";
 import { evaluateTriggers } from "../../features/story/triggerEngine";
@@ -22,6 +23,17 @@ import {
 import type { FearType, StoryEvent, TaPronoun } from "../../types/story";
 
 let timedPollutionTimer: number | undefined;
+const DRAFT_DELETE_SETTLE_MS = 450;
+let pendingDeletedDraft = "";
+let pendingDeletedDraftTimer: number | undefined;
+
+function resetPendingDeletedDraft() {
+  pendingDeletedDraft = "";
+  if (typeof window !== "undefined" && pendingDeletedDraftTimer) {
+    window.clearTimeout(pendingDeletedDraftTimer);
+  }
+  pendingDeletedDraftTimer = undefined;
+}
 
 function withPersistentFields(session: SessionState, persisted: PersistedState): SessionState {
   return {
@@ -76,15 +88,22 @@ function createSpaceLabel(spaceVisitCount: number): string {
 interface AppStore {
   hydrated: boolean;
   isReplying: boolean;
+  isTaTyping: boolean;
+  pendingUserMessages: SessionState["chatHistory"];
   session: SessionState;
   hydrate: () => void;
   selectSetup: (fearType: FearType, taPronoun: TaPronoun) => Promise<void>;
   updateDraft: (
     previousValue: string,
     nextValue: string,
-    options?: { isDeleting?: boolean; isComposing?: boolean }
+    options?: {
+      isDeleting?: boolean;
+      isComposing?: boolean;
+      deletionType?: "deleteContentBackward" | "deleteContentForward" | "";
+      timestamp?: number;
+    }
   ) => void;
-  sendMessage: (input: string) => Promise<void>;
+  sendMessage: (input: string, pendingMessageId?: string) => Promise<void>;
   rollbackToMessage: (messageId: string) => void;
   completeLocationReveal: () => void;
   revealLocationLie: () => void;
@@ -102,7 +121,7 @@ interface AppStore {
 }
 
 function getRandomTaLineDelayMs() {
-  return 1000 + Math.floor(Math.random() * 2001);
+  return 1000 + Math.floor(Math.random() * 1001);
 }
 
 async function waitForTaLineDelay() {
@@ -127,9 +146,96 @@ function createLocationNotice() {
   });
 }
 
-export const useAppStore = create<AppStore>((set, get) => ({
+function createPendingUserMessage(displayedText: string) {
+  return createChatMessage("user", displayedText, {
+    kind: "pending"
+  });
+}
+
+export const useAppStore = create<AppStore>((set, get) => {
+  let isFlushingPendingQueue = false;
+
+  const flushPendingQueue = () => {
+    if (isFlushingPendingQueue) {
+      return;
+    }
+
+    const state = get();
+    const nextPendingMessage = state.pendingUserMessages[0];
+
+    if (!nextPendingMessage || state.isReplying) {
+      return;
+    }
+
+    isFlushingPendingQueue = true;
+
+    void get()
+      .sendMessage(nextPendingMessage.displayedText, nextPendingMessage.id)
+      .finally(() => {
+        isFlushingPendingQueue = false;
+
+        if (!get().isReplying) {
+          flushPendingQueue();
+        }
+      });
+  };
+
+  const appendTaReplyLine = (line: string, kind: "normal" | "glitch" | "warning") => {
+    const streamedSession = {
+      ...get().session,
+      chatHistory: [...get().session.chatHistory, createChatMessage("ta", line, { kind })]
+    };
+
+    set({ session: streamedSession });
+    persistSession(streamedSession);
+  };
+
+  const finishTaTyping = () => {
+    set({ session: get().session, isReplying: false, isTaTyping: false });
+    flushPendingQueue();
+  };
+
+  const streamTaReplyLines = async (
+    replyLines: string[],
+    kind: "normal" | "glitch" | "warning",
+    options: {
+      waitBeforeFirstLine?: boolean;
+    } = {}
+  ) => {
+    if (replyLines.length === 0) {
+      finishTaTyping();
+      return;
+    }
+
+    if (options.waitBeforeFirstLine) {
+      await waitForTaLineDelay();
+    }
+
+    for (let index = 0; index < replyLines.length; index += 1) {
+      appendTaReplyLine(replyLines[index], kind);
+
+      if (index === 0) {
+        set({
+          session: get().session,
+          isReplying: false,
+          isTaTyping: replyLines.length > 1
+        });
+        flushPendingQueue();
+      }
+
+      if (index < replyLines.length - 1) {
+        await waitForTaLineDelay();
+      }
+    }
+
+    finishTaTyping();
+  };
+
+  return {
   hydrated: false,
   isReplying: false,
+  isTaTyping: false,
+  pendingUserMessages: [],
   session: createEmptySession(),
 
   // no-op placeholder to satisfy method ordering in returned object
@@ -137,96 +243,110 @@ export const useAppStore = create<AppStore>((set, get) => ({
   hydrate: () => {
     set({
       hydrated: true,
-      session: hydrateSessionFromStorage()
+      session: hydrateSessionFromStorage(),
+      isReplying: false,
+      isTaTyping: false,
+      pendingUserMessages: []
     });
   },
 
   selectSetup: async (fearType, taPronoun) => {
+    resetPendingDeletedDraft();
     const persisted = storageRepository.read();
     const nextSession = withPersistentFields(createEmptySession(), persisted);
     nextSession.fearType = fearType;
     nextSession.taPronoun = taPronoun;
     nextSession.stage = "intro";
     nextSession.chatHistory = [];
-    set({ session: nextSession, isReplying: true });
-    persistSession(nextSession);
-
-    const replyLines = await buildReply({
-      session: nextSession
-    });
-
-    for (let index = 0; index < replyLines.length; index += 1) {
-      const line = replyLines[index];
-      const streamedSession = {
-        ...get().session,
-        chatHistory: [...get().session.chatHistory, createChatMessage("ta", line, { kind: "normal" })]
-      };
-
-      set({ session: streamedSession });
-      persistSession(streamedSession);
-
-      if (index < replyLines.length - 1) {
-        await waitForTaLineDelay();
-      }
-    }
-
     const finalSession = {
-      ...get().session,
-      chatHistory: [...get().session.chatHistory, createIntroSpaceNotice(taPronoun)]
+      ...nextSession,
+      chatHistory: [...createIntroMessages(taPronoun), createIntroSpaceNotice(taPronoun)]
     };
 
     set({
       session: finalSession,
-      isReplying: false
+      isReplying: false,
+      isTaTyping: false,
+      pendingUserMessages: []
     });
     persistSession(finalSession);
   },
 
   updateDraft: (previousValue, nextValue, options = {}) => {
     if (options.isComposing || !options.isDeleting) {
+      resetPendingDeletedDraft();
       return;
     }
 
-    const deletedDraft = captureDeletedDraft(previousValue, nextValue);
+    const deletedSegment = extractDeletedDraftSegment(previousValue, nextValue);
 
-    if (!deletedDraft) {
+    if (!deletedSegment) {
       return;
     }
 
-    set((state) => {
-      if (state.session.deletedDrafts.includes(deletedDraft)) {
-        return state;
+    pendingDeletedDraft =
+      options.deletionType === "deleteContentForward"
+        ? `${pendingDeletedDraft}${deletedSegment}`
+        : `${deletedSegment}${pendingDeletedDraft}`;
+
+    if (typeof window !== "undefined" && pendingDeletedDraftTimer) {
+      window.clearTimeout(pendingDeletedDraftTimer);
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    pendingDeletedDraftTimer = window.setTimeout(() => {
+      const deletedDraft = pendingDeletedDraft.trim();
+      resetPendingDeletedDraft();
+
+      if (deletedDraft.length < 3) {
+        return;
       }
 
-      const nextSession = {
-        ...state.session,
-        stage: "draft_exposed" as const,
-        chatHistory: [
-          ...state.session.chatHistory,
-          createChatMessage(
-            "ta",
-            draftCopy.buildImmediateReply(deletedDraft),
-            { kind: "glitch" }
-          )
-        ],
-        deletedDrafts: [...state.session.deletedDrafts, deletedDraft],
-        deletedDraftCount: state.session.deletedDraftCount + 1,
-        metaMemory: [...state.session.metaMemory, draftCopy.buildMetaMemory(deletedDraft)]
-      };
+      void (async () => {
+        await waitForTaLineDelay();
 
-      persistSession(nextSession);
-      return { session: nextSession };
-    });
+        set((state) => {
+          if (state.session.deletedDrafts.includes(deletedDraft)) {
+            return state;
+          }
+
+          const nextSession = {
+            ...state.session,
+            stage: "draft_exposed" as const,
+            chatHistory: [
+              ...state.session.chatHistory,
+              createChatMessage(
+                "ta",
+                draftCopy.buildImmediateReply(deletedDraft),
+                { kind: "glitch" }
+              )
+            ],
+            deletedDrafts: [...state.session.deletedDrafts, deletedDraft],
+            deletedDraftCount: state.session.deletedDraftCount + 1,
+            metaMemory: [...state.session.metaMemory, draftCopy.buildMetaMemory(deletedDraft)]
+          };
+
+          persistSession(nextSession);
+          return { session: nextSession };
+        });
+      })();
+    }, DRAFT_DELETE_SETTLE_MS);
   },
 
-  sendMessage: async (input) => {
-    if (get().isReplying) {
-      return;
-    }
-
+  sendMessage: async (input, pendingMessageId) => {
     const userInput = input.trim();
 
     if (!userInput) {
+      return;
+    }
+
+    if (get().isReplying && !pendingMessageId) {
+      set((state) => ({
+        pendingUserMessages: [...state.pendingUserMessages, createPendingUserMessage(userInput)]
+      }));
       return;
     }
 
@@ -244,16 +364,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       events: triggerEvaluation.events
     });
     const events = [...triggerEvaluation.events];
-    const userMessage = createChatMessage(
-      "user",
-      pollution?.pollutedText ?? userInput,
-      pollution
-        ? {
-            originalText: userInput,
-            kind: "polluted"
-          }
-        : undefined
-    );
+    const userMessage = {
+      id: pendingMessageId ?? createChatMessage("user", "").id,
+      role: "user" as const,
+      displayedText: pollution?.pollutedText ?? userInput,
+      originalText: pollution ? userInput : undefined,
+      kind: pollution ? ("polluted" as const) : ("normal" as const),
+      timestamp:
+        get().pendingUserMessages.find((message) => message.id === pendingMessageId)?.timestamp ?? Date.now()
+    };
     const nextStage = deriveNextStage({
       session,
       nextSendCount,
@@ -326,55 +445,101 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }, 30000);
     }
 
-    set({ session: nextSession, isReplying: true });
+    set((state) => ({
+      session: nextSession,
+      isReplying: true,
+      isTaTyping: true,
+      pendingUserMessages: pendingMessageId
+        ? state.pendingUserMessages.filter((message) => message.id !== pendingMessageId)
+        : state.pendingUserMessages
+    }));
     persistSession(nextSession);
 
     if (triggerEvaluation.events.includes("location_ping")) {
       const finalSession = {
         ...nextSession,
-        chatHistory: [
-          ...nextSession.chatHistory,
-          createLocationNotice()
-        ],
+        chatHistory: [...nextSession.chatHistory, createLocationNotice()],
         metaMemory: [...nextSession.metaMemory, "第二十次对话后，最后一句被改成了“你在哪？”。"]
       };
 
-      set({ session: finalSession, isReplying: false });
+      set({ session: finalSession, isReplying: false, isTaTyping: false });
       persistSession(finalSession);
+      flushPendingQueue();
       return;
     }
 
-    const replyLines = await buildReply({
+    const replyKind = pollution ? "glitch" : "normal";
+    const queuedReplyLines: string[] = [];
+    let hasDeliveredFirstLine = false;
+    let streamCompleted = false;
+    let deliveryTask: Promise<void> | null = null;
+
+    const syncReplyProgress = () => {
+      set({
+        session: get().session,
+        isReplying: false,
+        isTaTyping: !streamCompleted || queuedReplyLines.length > 0
+      });
+      flushPendingQueue();
+    };
+
+    const deliverQueuedLines = () => {
+      if (deliveryTask) {
+        return deliveryTask;
+      }
+
+      deliveryTask = (async () => {
+        while (queuedReplyLines.length > 0) {
+          const line = queuedReplyLines.shift();
+
+          if (!line) {
+            continue;
+          }
+
+          if (hasDeliveredFirstLine) {
+            await waitForTaLineDelay();
+          }
+
+          appendTaReplyLine(line, replyKind);
+
+          if (!hasDeliveredFirstLine) {
+            hasDeliveredFirstLine = true;
+            syncReplyProgress();
+          }
+        }
+
+        deliveryTask = null;
+
+        if (streamCompleted) {
+          finishTaTyping();
+        }
+      })();
+
+      return deliveryTask;
+    };
+
+    await streamReply({
       session: nextSession,
       originalInput: userInput,
       pollutedInput: pollution?.pollutedText ?? userInput,
       triggerReason: triggerEvaluation.triggerReason,
       events
+    }, (line) => {
+      queuedReplyLines.push(line);
+      void deliverQueuedLines();
     });
 
-    for (let index = 0; index < replyLines.length; index += 1) {
-      const line = replyLines[index];
-      const streamedSession = {
-        ...get().session,
-        chatHistory: [
-          ...get().session.chatHistory,
-          createChatMessage("ta", line, { kind: pollution ? "glitch" : "normal" })
-        ]
-      };
+    streamCompleted = true;
 
-      set({ session: streamedSession });
-      persistSession(streamedSession);
-
-      if (index < replyLines.length - 1) {
-        await waitForTaLineDelay();
-      }
+    if (deliveryTask) {
+      await deliveryTask;
+    } else {
+      finishTaTyping();
     }
-
-    set({ session: get().session, isReplying: false });
   },
 
   rollbackToMessage: (messageId) => {
-    if (get().isReplying) {
+    if (get().isReplying || get().isTaTyping) {
       return;
     }
 
@@ -385,30 +550,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const persisted = storageRepository.read();
     const snapshot = createSnapshotFromMessage(session, messageId);
     const result = restoreFromMessage(session, persisted, snapshot);
-    set({ session: result.nextSession, isReplying: true });
+    set({ session: result.nextSession, isReplying: true, isTaTyping: true });
     storageRepository.write(result.nextPersistedState);
     persistSession(result.nextSession);
 
     void (async () => {
-      for (let index = 0; index < result.replyLines.length; index += 1) {
-        const line = result.replyLines[index];
-        const streamedSession = {
-          ...get().session,
-          chatHistory: [
-            ...get().session.chatHistory,
-            createChatMessage("ta", line, { kind: result.replyKind ?? "warning" })
-          ]
-        };
-
-        set({ session: streamedSession });
-        persistSession(streamedSession);
-
-        if (index < result.replyLines.length - 1) {
-          await waitForTaLineDelay();
-        }
-      }
-
-      set({ session: get().session, isReplying: false });
+      await streamTaReplyLines(result.replyLines, result.replyKind ?? "warning");
     })();
   },
 
@@ -467,46 +614,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   exitAttempt: async () => {
-    if (get().isReplying) {
+    if (get().isReplying || get().isTaTyping) {
       return;
     }
 
     const session = get().session;
     const nextCount = session.exitClickCount + 1;
+    const replyLines =
+      nextCount === 1
+        ? exitCopy.firstReplyLines
+        : nextCount === 2
+          ? exitCopy.secondReplyLines
+          : exitCopy.lateReplyLines;
     const nextSession = {
       ...session,
       exitClickCount: nextCount,
-      metaMemory: nextCount >= 2 ? [...session.metaMemory, "退出按钮也开始参与叙事。"] : session.metaMemory
+      metaMemory: nextCount >= 2 ? [...session.metaMemory, exitCopy.repeatedExitMetaMemory] : session.metaMemory
     };
 
     persistSession(nextSession);
-    set({ session: nextSession, isReplying: true });
-
-    const replyLines = await buildReply({
-      session: nextSession,
-      originalInput: "我要退出",
-      events: ["exit_blocked"]
+    set({ session: nextSession, isReplying: true, isTaTyping: true });
+    await streamTaReplyLines(replyLines, nextCount >= 2 ? "glitch" : "warning", {
+      waitBeforeFirstLine: true
     });
-
-    for (let index = 0; index < replyLines.length; index += 1) {
-      const line = replyLines[index];
-      const streamedSession = {
-        ...get().session,
-        chatHistory: [
-          ...get().session.chatHistory,
-          createChatMessage("ta", line, { kind: nextCount >= 2 ? "glitch" : "warning" })
-        ]
-      };
-
-      set({ session: streamedSession });
-      persistSession(streamedSession);
-
-      if (index < replyLines.length - 1) {
-        await waitForTaLineDelay();
-      }
-    }
-
-    set({ session: get().session, isReplying: false });
   },
 
   enterTruthReveal: () => {
@@ -550,8 +680,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   resetForReplay: () => {
+    resetPendingDeletedDraft();
     const persisted = storageRepository.read();
     set({
+      isReplying: false,
+      isTaTyping: false,
+      pendingUserMessages: [],
       session: (() => {
         const nextSession = {
         ...createEmptySession(),
@@ -605,4 +739,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   getExitLabel: () => createExitLabel(get().session.exitClickCount),
   getSpaceLabel: () => createSpaceLabel(get().session.spaceVisitCount)
-}));
+  };
+});

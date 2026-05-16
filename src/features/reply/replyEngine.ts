@@ -1,7 +1,7 @@
 import type { SessionState } from "../../types/session";
-import type { TaReplyRequest } from "../../types/api";
+import type { TaReplyRequest, TaReplyResponse } from "../../types/api";
 import type { StoryEvent, TriggerReason } from "../../types/story";
-import { generateTaReply } from "../../services/api/llmClient";
+import { generateTaReply, streamTaReply } from "../../services/api/llmClient";
 import { getFallbackReply } from "./replyFallbacks";
 
 interface ReplyContext {
@@ -43,6 +43,21 @@ function createReplyRequest({
   };
 }
 
+function buildFallbackResponse(
+  context: ReplyContext,
+  desiredReplyLineCount: 1 | 2,
+): TaReplyResponse {
+  return {
+    reply: getFallbackReply(
+      context.session,
+      desiredReplyLineCount,
+      context.triggerReason,
+      context.events
+    ),
+    source: "fallback"
+  };
+}
+
 export async function buildReply(context: ReplyContext): Promise<string[]> {
   const desiredReplyLineCount = pickReplyLineCount();
 
@@ -51,11 +66,23 @@ export async function buildReply(context: ReplyContext): Promise<string[]> {
     return result.reply;
   } catch (error) {
     console.warn("[ta-say] TA reply fell back to local copy.", error);
-    return getFallbackReply(
-      context.session,
-      desiredReplyLineCount,
-      context.triggerReason,
-      context.events
-    );
+    return buildFallbackResponse(context, desiredReplyLineCount).reply;
+  }
+}
+
+export async function streamReply(
+  context: ReplyContext,
+  onLine: (line: string) => void,
+): Promise<TaReplyResponse> {
+  const desiredReplyLineCount = pickReplyLineCount();
+  const request = createReplyRequest(context, desiredReplyLineCount);
+
+  try {
+    return await streamTaReply(request, onLine);
+  } catch (error) {
+    console.warn("[ta-say] TA reply fell back to local copy.", error);
+    const fallback = buildFallbackResponse(context, desiredReplyLineCount);
+    fallback.reply.forEach((line) => onLine(line));
+    return fallback;
   }
 }

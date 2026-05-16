@@ -10,7 +10,23 @@ const sampleFeedCards = [
     time: "今天 18:12",
     tag: "朋友动态",
     content: "支持你跨过 12 条消息之后，我有一种你终于肯认真说话的感觉。",
-    images: ["球衣", "草稿", "晴天"]
+    images: [
+      {
+        id: "campus-1",
+        alt: "蓝白色球衣",
+        url: "https://picsum.photos/seed/overspec-lover-jersey/800/600"
+      },
+      {
+        id: "campus-2",
+        alt: "桌面与纸张",
+        url: "https://picsum.photos/seed/overspec-lover-notes/800/600"
+      },
+      {
+        id: "campus-3",
+        alt: "日常晴天街景",
+        url: "https://picsum.photos/seed/overspec-lover-sky/800/600"
+      }
+    ]
   },
   {
     id: "product",
@@ -18,7 +34,23 @@ const sampleFeedCards = [
     time: "今天 17:08",
     tag: "技术分享",
     content: "科技感这事你已经写进 6 年级作业了，朋友圈就该留一点这种亮白、清爽、像真的生活痕迹。",
-    images: ["发布会", "界面", "夜景"]
+    images: [
+      {
+        id: "product-1",
+        alt: "技术分享现场",
+        url: "https://picsum.photos/seed/overspec-lover-talk/800/600"
+      },
+      {
+        id: "product-2",
+        alt: "电脑与界面",
+        url: "https://picsum.photos/seed/overspec-lover-ui/800/600"
+      },
+      {
+        id: "product-3",
+        alt: "城市夜景",
+        url: "https://picsum.photos/seed/overspec-lover-night/800/600"
+      }
+    ]
   },
   {
     id: "trip",
@@ -26,7 +58,28 @@ const sampleFeedCards = [
     time: "今天 15:36",
     tag: "照片动态",
     content: "一直不明白的是，为什么有些风景看起来平静，回头再看却像在提醒你别装没看见。",
-    images: ["山路", "湖面", "栏杆", "云层"]
+    images: [
+      {
+        id: "trip-1",
+        alt: "山间公路",
+        url: "https://picsum.photos/seed/overspec-lover-road/800/600"
+      },
+      {
+        id: "trip-2",
+        alt: "湖面风景",
+        url: "https://picsum.photos/seed/overspec-lover-lake/800/600"
+      },
+      {
+        id: "trip-3",
+        alt: "观景栏杆",
+        url: "https://picsum.photos/seed/overspec-lover-rail/800/600"
+      },
+      {
+        id: "trip-4",
+        alt: "山里云层",
+        url: "https://picsum.photos/seed/overspec-lover-cloud/800/600"
+      }
+    ]
   }
 ] as const;
 
@@ -41,7 +94,7 @@ export function SpacePage() {
   }, [navigate, session.stage]);
 
   const posts = getSpacePosts(session.spaceVisitCount);
-  const zoneTitle = session.spaceVisitCount >= 2 ? "用户的空间" : "宝宝的空间";
+  const zoneTitle = session.spaceVisitCount >= 2 ? "用户的空间" : "用户的空间：宝宝的空间";
 
   return (
     <main className="space-feed-screen">
@@ -99,9 +152,9 @@ export function SpacePage() {
                   <p className="space-feed-card-copy">{card.content}</p>
 
                   <div className={`space-feed-image-grid columns-${Math.min(card.images.length, 3)}`}>
-                    {card.images.map((label, imageIndex) => (
-                      <div key={label} className="space-feed-image-tile">
-                        <span>{label}</span>
+                    {card.images.map((image, imageIndex) => (
+                      <div key={image.id} className="space-feed-image-tile">
+                        <img src={image.url} alt={image.alt} loading="lazy" />
                         <small>{index + 1}-{imageIndex + 1}</small>
                       </div>
                     ))}

@@ -54,8 +54,19 @@ export const rollbackCopy = {
 
 export const draftCopy = {
   // 用户在输入框删掉至少三个字时，立即插入聊天流的硬编码 TA 回复。
-  buildImmediateReply: (deletedDraft: string) =>
-    `你刚才输入了“${deletedDraft}”，但是删掉了，你为什么这样？`,
+  immediateReplyTemplates: [
+    (deletedDraft: string) => `你刚才输入了“${deletedDraft}”，但是删掉了，你为什么这样？`,
+    (deletedDraft: string) => `“${deletedDraft}”？`,
+    (deletedDraft: string) => `你想说“${deletedDraft}”是吧，干嘛支支吾吾的？`
+  ],
+  // 从删稿回复模板里随机取一条，插入聊天流。
+  buildImmediateReply: (deletedDraft: string) => {
+    const template =
+      draftCopy.immediateReplyTemplates[
+        Math.floor(Math.random() * draftCopy.immediateReplyTemplates.length)
+      ];
+    return template?.(deletedDraft) ?? `“${deletedDraft}”？`;
+  },
   // 用户删掉输入内容后，写入 metaMemory 的记录文本。
   buildMetaMemory: (deletedDraft: string) => `你刚才删掉了：${deletedDraft}`
 } as const;
@@ -65,8 +76,8 @@ export const storyCopy = {
   introLines: (pronoun: "他" | "她" | "TA" | null) => {
     const name = pronoun ?? "TA";
     return [
-      `醒了吗？从现在开始，先让我用${name}的身份陪你聊天。`,
-      "别急着怀疑，先把你真正想说的话发给我。"
+      "早安。昨晚你说的话，我都记得。",
+      `醒了吗？从现在开始，先让我用${name}的身份陪你聊天。`
     ];
   },
   // introduction 阶段下方插入的空间提醒文案。
@@ -146,6 +157,31 @@ export const uiCopy = {
     warning: "读档失败",
     locked: "TA已读取上个存档"
   }
+} as const;
+
+export const exitCopy = {
+  // 第一次点击右上角关闭按钮时弹出的确认层标题。
+  firstDialogTitle: "确定退出吗？",
+  // 第一次点击右上角关闭按钮时弹出的确认层说明。
+  firstDialogBody: "你现在离开的话，这段对话会停在这里。你确定要走吗？",
+  // 确认层里的主按钮文案，点击后不会真正退出，而是进入退出异常互动。
+  confirmLabel: "退出",
+  // 确认层里的次按钮文案，仅关闭弹层。
+  stayLabel: "留下",
+  // 第二次及以后点击右上角关闭按钮时，按钮悬浮提示会升级。
+  closeButtonTitles: {
+    default: "退出",
+    warning: "你确定？",
+    locked: "你已经退出过一次了"
+  },
+  // 第一次确认退出后，TA 追加的硬编码回复。
+  firstReplyLines: ["你刚刚想走？"],
+  // 第二次点击退出后，TA 追加的硬编码回复。
+  secondReplyLines: ["你已经退出过一次了。"],
+  // 后续点击退出后，TA 追加的硬编码回复。
+  lateReplyLines: ["别急。", "你还没把真话说完。"],
+  // 退出异常写入 metaMemory 的文本。
+  repeatedExitMetaMemory: "退出按钮也开始参与叙事。"
 } as const;
 
 export const fallbackReplyCopy = {
