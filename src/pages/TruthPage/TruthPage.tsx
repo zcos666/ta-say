@@ -1,0 +1,57 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAppStore } from "../../app/store/useAppStore";
+import { truthLines } from "../../features/story/stageConfig";
+
+export function TruthPage() {
+  const navigate = useNavigate();
+  const enterTruthReveal = useAppStore((state) => state.enterTruthReveal);
+  const completeTruth = useAppStore((state) => state.completeTruth);
+  const [visibleCount, setVisibleCount] = useState(1);
+
+  useEffect(() => {
+    enterTruthReveal();
+  }, [enterTruthReveal]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setVisibleCount((current) => {
+        if (current >= truthLines.length) {
+          window.clearInterval(timer);
+          return current;
+        }
+
+        return current + 1;
+      });
+    }, 1100);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const completed = visibleCount >= truthLines.length;
+
+  return (
+    <main className="screen">
+      <section className="shell page page-body stack truth-stage">
+        <p className="tiny">真相揭示</p>
+        {truthLines.slice(0, visibleCount).map((line) => (
+          <p key={line} className="truth-line">
+            {line}
+          </p>
+        ))}
+        <div className="spacer" />
+        {completed ? (
+          <button
+            className="button-primary"
+            onClick={() => {
+              completeTruth();
+              navigate("/wake");
+            }}
+          >
+            梦醒
+          </button>
+        ) : null}
+      </section>
+    </main>
+  );
+}
