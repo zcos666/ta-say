@@ -447,23 +447,16 @@ export async function streamTaReply(
       }
     }
   });
-
-  const fallbackLines = extractReplyLines(rawContent, request.desiredReplyLineCount);
+  const replyLines = extractReplyLines(rawContent, request.desiredReplyLineCount);
 
   if (emittedLines.length === 0) {
-    fallbackLines.forEach((line) => onLine(line));
-    return {
-      reply: fallbackLines,
-      source: "llm"
-    };
-  }
-
-  if (emittedLines.length < fallbackLines.length) {
-    fallbackLines.slice(emittedLines.length).forEach((line) => onLine(line));
+    replyLines.forEach((line) => onLine(line));
+  } else if (emittedLines.length < replyLines.length) {
+    replyLines.slice(emittedLines.length).forEach((line) => onLine(line));
   }
 
   return {
-    reply: fallbackLines,
+    reply: replyLines,
     source: "llm"
   };
 }

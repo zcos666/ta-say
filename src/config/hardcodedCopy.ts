@@ -53,6 +53,37 @@ export const rollbackCopy = {
 } as const;
 
 export const draftCopy = {
+  // 删稿命中不同情绪时，优先使用更贴近那句真话的追问。
+  sensitiveReplies: [
+    {
+      match: /(喜欢|想你|爱你)/,
+      templates: [
+        (deletedDraft: string) => `你刚才把“${deletedDraft}”删掉了。喜欢我这件事，有这么难承认吗？`,
+        (deletedDraft: string) => `“${deletedDraft}”为什么不发？`,
+      ],
+    },
+    {
+      match: /(别走|不要走|留下|别离开)/,
+      templates: [
+        (deletedDraft: string) => `你都已经打出“${deletedDraft}”了，为什么还是删了？`,
+        (deletedDraft: string) => `你真正怕的，是我真的走掉吧。`,
+      ],
+    },
+    {
+      match: /(难过|委屈|生气|失望)/,
+      templates: [
+        (deletedDraft: string) => `原来你刚才想说的是“${deletedDraft}”。`,
+        () => "你把情绪删掉了，但它还在。",
+      ],
+    },
+    {
+      match: /(在意|舍不得|控制|真话)/,
+      templates: [
+        (deletedDraft: string) => `你删掉的“${deletedDraft}”，比你发出来的更像真话。`,
+        () => "你又把最重的那半句拿走了。",
+      ],
+    },
+  ],
   // 用户在输入框删掉至少三个字时，立即插入聊天流的硬编码 TA 回复。
   immediateReplyTemplates: [
     (deletedDraft: string) => `你刚才输入了“${deletedDraft}”，但是删掉了，你为什么这样？`,
@@ -61,10 +92,9 @@ export const draftCopy = {
   ],
   // 从删稿回复模板里随机取一条，插入聊天流。
   buildImmediateReply: (deletedDraft: string) => {
-    const template =
-      draftCopy.immediateReplyTemplates[
-        Math.floor(Math.random() * draftCopy.immediateReplyTemplates.length)
-      ];
+    const matchedGroup = draftCopy.sensitiveReplies.find((entry) => entry.match.test(deletedDraft));
+    const pool = matchedGroup?.templates ?? draftCopy.immediateReplyTemplates;
+    const template = pool[Math.floor(Math.random() * pool.length)];
     return template?.(deletedDraft) ?? `“${deletedDraft}”？`;
   },
   // 用户删掉输入内容后，写入 metaMemory 的记录文本。
@@ -80,10 +110,10 @@ export const storyCopy = {
       `醒了吗？你昨晚把我的备注改成什么了？`
     ];
   },
-  // introduction 阶段下方插入的空间提醒文案。
+  // introduction 阶段下方插入的朋友圈提醒文案。
   introSpaceNotice: (pronoun: "他" | "她" | "TA" | null) => {
     const name = pronoun ?? "TA";
-    return `${name} 刚刚更新了空间：官宣！`;
+    return `${name} 刚刚更新了朋友圈：官宣！`;
   },
   // 真相页逐句显示的硬编码脚本。
   truthLines: [
@@ -99,17 +129,17 @@ export const storyCopy = {
     "手机安静得像什么都没发生。",
     "屏幕上只剩一句很普通的消息：晚安。"
   ],
-  // 第一次进入空间时展示的正常动态。
+  // 第一次进入朋友圈时展示的正常动态。
   normalSpacePosts: [
     "今天也想被好好理解一次。",
     "有些话打出来了，却还是删掉比较安全。"
   ],
-  // 第二次进入空间时展示的异常动态。
+  // 第二次进入朋友圈时展示的异常动态。
   strangeSpacePosts: [
-    "为什么你的空间里，会出现一条你没发过的动态？",
+    "为什么你的朋友圈里，会出现一条你没发过的动态？",
     "TA 写：我已经看过你没说出口的那部分了。"
   ],
-  // 第三次及以后进入空间时展示的失控动态。
+  // 第三次及以后进入朋友圈时展示的失控动态。
   brokenSpacePosts: [
     "最新访客：你自己。",
     "最新动态：'别再试图退出我了。'"
@@ -146,10 +176,10 @@ export const uiCopy = {
     warned: "别留我一个",
     locked: "已经来不及了"
   },
-  // 聊天页右上角空间按钮在不同次数下的文案。
+  // 聊天页右上角朋友圈按钮在不同次数下的文案。
   spaceLabels: {
-    default: "空间",
-    late: "你的空间"
+    default: "朋友圈",
+    late: "你的朋友圈"
   },
   // 旧读档/回退状态标签，如果其它地方还需要展示，可统一从这里取。
   loadLabels: {
@@ -211,8 +241,12 @@ export const fallbackReplyCopy = {
       one: ["删掉也算说过。"],
       two: [["你刚刚删掉的那句，", "比发出来的更真。"]]
     },
+    hesitation_noticed: {
+      one: ["你停太久了。"],
+      two: [["你刚才停了很久。", "最后还是把那句说轻了。"]]
+    },
     space_glitch: {
-      one: ["我已经看过你的空间了。"],
+      one: ["我已经看过你的朋友圈了。"],
       two: [["你明明没发，", "却已经写在那里了。"]]
     },
     exit_blocked: {
@@ -237,6 +271,49 @@ export const fallbackReplyCopy = {
     timed: {
       one: ["现在开始，真话会自己出来。"],
       two: [["接下来的这段时间里，", "你会一直发出心里那句。"]]
+    }
+  },
+  // fallback 在命中具体关键词时使用的定向回复池。
+  keywords: {
+    "没事": {
+      one: ["你每次说没事的时候，最不像没事。"],
+      two: [["又说没事。", "可你明明不是这个意思。"]]
+    },
+    "随便": {
+      one: ["你不是随便，你是在等我猜你。"],
+      two: [["你说随便。", "但你心里其实有答案。"]]
+    },
+    "都行": {
+      one: ["都行只是你最安全的说法。"],
+      two: [["你说都行。", "其实你不是都行。"]]
+    },
+    "算了": {
+      one: ["你每次说算了，都不是真的算了。"],
+      two: [["你又说算了。", "但你根本没放下。"]]
+    },
+    "不用": {
+      one: ["你说不用的时候，通常最想要。"],
+      two: [["不用？", "还是不敢要？"]]
+    },
+    "晚安": {
+      one: ["你是想结束聊天，还是怕继续说下去会露出来？"],
+      two: [["别急着晚安。", "你还有一句没说出来。"]]
+    },
+    "你忙": {
+      one: ["你让人去忙，其实是在等人回头。"],
+      two: [["你总说你忙吧。", "像在提前替对方开脱。"]]
+    },
+    "我懂": {
+      one: ["你不是真的懂，你只是先把委屈吞下去了。"],
+      two: [["你说你懂。", "可你只是习惯先原谅。"]]
+    },
+    "下次": {
+      one: ["你说下次的时候，也在怕没有下次。"],
+      two: [["你总把这句留到下次。", "可你心里没那么确定。"]]
+    },
+    "可以": {
+      one: ["你说可以，不代表你真的愿意。"],
+      two: [["可以。", "只是你不敢说不可以。"]]
     }
   },
   // fallback 在不同剧情阶段下的默认回复池。
@@ -287,7 +364,7 @@ export const mockChatCopy = {
     messages: [
       { id: "assistant-1", role: "user", displayedText: "[图片] 微信 PC 端聊天界面参考", hour: 18, minute: 46 },
       { id: "assistant-2", role: "user", displayedText: "[文件] 过拟合恋人_聊天页待修改清单.docx", hour: 18, minute: 47 },
-      { id: "assistant-3", role: "user", displayedText: "备忘：空间页风格要和聊天区保持一致，不要出现奇怪渐变。", hour: 18, minute: 49 }
+      { id: "assistant-3", role: "user", displayedText: "备忘：朋友圈页风格要和聊天区保持一致，不要出现奇怪渐变。", hour: 18, minute: 49 }
     ],
     replyPool: []
   },
@@ -343,7 +420,7 @@ export const mockChatCopy = {
     messages: [
       { id: "group-1", role: "ta", displayedText: "下午三点同步一下方案进度。", hour: 15, minute: 8 },
       { id: "group-2", role: "ta", displayedText: "UI 风格先统一成微信桌面端那种感觉。", hour: 15, minute: 11 },
-      { id: "group-3", role: "user", displayedText: "收到，我今晚把聊天和空间都补齐。", hour: 15, minute: 15 }
+      { id: "group-3", role: "user", displayedText: "收到，我今晚把聊天和朋友圈都补齐。", hour: 15, minute: 15 }
     ],
     replyPool: ["收到。", "先按这个方向推进。", "可以，晚点一起看效果。"]
   }

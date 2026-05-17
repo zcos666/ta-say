@@ -14,6 +14,7 @@ function chooseByCount(pool: { one: string[]; two: Array<[string, string]> }, de
 export function getFallbackReply(
   session: SessionState,
   desiredReplyLineCount: 1 | 2,
+  triggerKeyword?: string,
   triggerReason?: TriggerReason,
   events: StoryEvent[] = []
 ): string[] {
@@ -33,12 +34,23 @@ export function getFallbackReply(
     return chooseByCount(fallbackReplyCopy.events.draft_exposed, desiredReplyLineCount);
   }
 
+  if (events.includes("hesitation_noticed")) {
+    return chooseByCount(fallbackReplyCopy.events.hesitation_noticed, desiredReplyLineCount);
+  }
+
   if (events.includes("space_glitch")) {
     return chooseByCount(fallbackReplyCopy.events.space_glitch, desiredReplyLineCount);
   }
 
   if (events.includes("exit_blocked")) {
     return chooseByCount(fallbackReplyCopy.events.exit_blocked, desiredReplyLineCount);
+  }
+
+  if (triggerReason === "keyword" && triggerKeyword && fallbackReplyCopy.keywords[triggerKeyword as keyof typeof fallbackReplyCopy.keywords]) {
+    return chooseByCount(
+      fallbackReplyCopy.keywords[triggerKeyword as keyof typeof fallbackReplyCopy.keywords],
+      desiredReplyLineCount
+    );
   }
 
   if (triggerReason === "keyword") {

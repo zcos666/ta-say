@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { extractDeletedDraftSegment } from "../../features/drafts/draftMonitor";
 import { buildPollutionResult } from "../../features/pollution/pollutionEngine";
-import { buildReply, streamReply } from "../../features/reply/replyEngine";
+import { buildReply } from "../../features/reply/replyEngine";
 import { draftCopy, exitCopy, rollbackCopy, storyCopy, uiCopy } from "../../config/hardcodedCopy";
 import {
   createSnapshotFromMessage,
@@ -26,6 +26,15 @@ let timedPollutionTimer: number | undefined;
 const DRAFT_DELETE_SETTLE_MS = 450;
 let pendingDeletedDraft = "";
 let pendingDeletedDraftTimer: number | undefined;
+const DRAFT_PAUSE_HINT_STEPS = [
+  { ms: 8000, hint: "你在这里停了很久。" },
+  { ms: 16000, hint: "这句话已经被你改得越来越轻了。" },
+  { ms: 26000, hint: "有一版更像真话。" }
+] as const;
+let draftPauseTimers: number[] = [];
+let currentDraftEditCount = 0;
+let currentDraftPauseLevel = 0;
+let currentDraftLastChangedAt: number | undefined;
 
 function resetPendingDeletedDraft() {
   pendingDeletedDraft = "";
@@ -35,11 +44,20 @@ function resetPendingDeletedDraft() {
   pendingDeletedDraftTimer = undefined;
 }
 
+function clearDraftPauseTimers() {
+  if (typeof window === "undefined") {
+    draftPauseTimers = [];
+    return;
+  }
+
+  draftPauseTimers.forEach((timer) => window.clearTimeout(timer));
+  draftPauseTimers = [];
+}
+
 function withPersistentFields(session: SessionState, persisted: PersistedState): SessionState {
   return {
     ...session,
     hasFinishedGame: persisted.hasFinishedGame,
-    loadCount: persisted.loadCount,
     metaMemory: [...persisted.metaMemory],
     shareCardData: persisted.shareCardData
   };
@@ -89,6 +107,9 @@ interface AppStore {
   hydrated: boolean;
   isReplying: boolean;
   isTaTyping: boolean;
+  draftWhisper: string;
+  draftEditCount: number;
+  draftPauseLevel: number;
   pendingUserMessages: SessionState["chatHistory"];
   session: SessionState;
   hydrate: () => void;
@@ -121,7 +142,7 @@ interface AppStore {
 }
 
 function getRandomTaLineDelayMs() {
-  return 1000 + Math.floor(Math.random() * 1001);
+  return 280 + Math.floor(Math.random() * 341);
 }
 
 async function waitForTaLineDelay() {
@@ -154,6 +175,36 @@ function createPendingUserMessage(displayedText: string) {
 
 export const useAppStore = create<AppStore>((set, get) => {
   let isFlushingPendingQueue = false;
+
+  const resetDraftPauseState = () => {
+    clearDraftPauseTimers();
+    currentDraftEditCount = 0;
+    currentDraftPauseLevel = 0;
+    currentDraftLastChangedAt = undefined;
+    set({
+      draftWhisper: "",
+      draftEditCount: 0,
+      draftPauseLevel: 0
+    });
+  };
+
+  const scheduleDraftPauseHints = () => {
+    clearDraftPauseTimers();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    draftPauseTimers = DRAFT_PAUSE_HINT_STEPS.map((step, index) =>
+      window.setTimeout(() => {
+        currentDraftPauseLevel = index + 1;
+        set({
+          draftWhisper: step.hint,
+          draftPauseLevel: currentDraftPauseLevel
+        });
+      }, step.ms)
+    );
+  };
 
   const flushPendingQueue = () => {
     if (isFlushingPendingQueue) {
@@ -196,7 +247,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   };
 
   const streamTaReplyLines = async (
-    replyLines: string[],
+    replyLines: readonly string[],
     kind: "normal" | "glitch" | "warning",
     options: {
       waitBeforeFirstLine?: boolean;
@@ -235,6 +286,9 @@ export const useAppStore = create<AppStore>((set, get) => {
   hydrated: false,
   isReplying: false,
   isTaTyping: false,
+  draftWhisper: "",
+  draftEditCount: 0,
+  draftPauseLevel: 0,
   pendingUserMessages: [],
   session: createEmptySession(),
 
@@ -246,12 +300,16 @@ export const useAppStore = create<AppStore>((set, get) => {
       session: hydrateSessionFromStorage(),
       isReplying: false,
       isTaTyping: false,
+      draftWhisper: "",
+      draftEditCount: 0,
+      draftPauseLevel: 0,
       pendingUserMessages: []
     });
   },
 
   selectSetup: async (taPronoun) => {
     resetPendingDeletedDraft();
+    resetDraftPauseState();
     const persisted = storageRepository.read();
     const nextSession = withPersistentFields(createEmptySession(), persisted);
     nextSession.taPronoun = taPronoun;
@@ -272,7 +330,35 @@ export const useAppStore = create<AppStore>((set, get) => {
   },
 
   updateDraft: (previousValue, nextValue, options = {}) => {
-    if (options.isComposing || !options.isDeleting) {
+    if (options.isComposing) {
+      return;
+    }
+
+    const timestamp = options.timestamp ?? Date.now();
+    const previousTrimmed = previousValue.trim();
+    const nextTrimmed = nextValue.trim();
+
+    if (!nextTrimmed) {
+      resetPendingDeletedDraft();
+      resetDraftPauseState();
+      return;
+    }
+
+    if (previousValue !== nextValue) {
+      if (!previousTrimmed) {
+        currentDraftEditCount = 0;
+      }
+      currentDraftPauseLevel = 0;
+      currentDraftLastChangedAt = timestamp;
+      set({
+        draftWhisper: "",
+        draftEditCount: currentDraftEditCount,
+        draftPauseLevel: 0
+      });
+      scheduleDraftPauseHints();
+    }
+
+    if (!options.isDeleting) {
       resetPendingDeletedDraft();
       return;
     }
@@ -282,6 +368,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     if (!deletedSegment) {
       return;
     }
+
+    currentDraftEditCount += 1;
+    set({
+      draftWhisper: get().draftWhisper,
+      draftEditCount: currentDraftEditCount,
+      draftPauseLevel: get().draftPauseLevel
+    });
 
     pendingDeletedDraft =
       options.deletionType === "deleteContentForward"
@@ -351,6 +444,13 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     const session = get().session;
     const nextSendCount = session.sendCount + 1;
+    const now = Date.now();
+    const hesitationSeconds =
+      currentDraftLastChangedAt && currentDraftPauseLevel > 0
+        ? Math.max(1, Math.round((now - currentDraftLastChangedAt) / 1000))
+        : 0;
+    const shouldRecordHesitation = currentDraftPauseLevel > 0 && hesitationSeconds > 0;
+    const shouldRecordHeavyEditing = currentDraftEditCount >= 2;
 
     const triggerEvaluation = evaluateTriggers(session, userInput, nextSendCount);
     const pollution = buildPollutionResult({
@@ -363,6 +463,9 @@ export const useAppStore = create<AppStore>((set, get) => {
       events: triggerEvaluation.events
     });
     const events = [...triggerEvaluation.events];
+    if (shouldRecordHesitation) {
+      events.push("hesitation_noticed");
+    }
     const userMessage = {
       id: pendingMessageId ?? createChatMessage("user", "").id,
       role: "user" as const,
@@ -410,6 +513,19 @@ export const useAppStore = create<AppStore>((set, get) => {
         loadCount: session.loadCount
       })
     };
+
+    if (shouldRecordHesitation || shouldRecordHeavyEditing) {
+      const draftMetaLines = [];
+      if (shouldRecordHesitation) {
+        draftMetaLines.push(`这句话在发出前停了${hesitationSeconds}秒。`);
+      }
+      if (shouldRecordHeavyEditing) {
+        draftMetaLines.push(`这句话在输入框里被改了${currentDraftEditCount}次。`);
+      }
+      nextSession.metaMemory = [...nextSession.metaMemory, draftMetaLines.join("")];
+    }
+
+    resetDraftPauseState();
 
     if (triggerEvaluation.events.includes("draft_exposed")) {
       nextSession.chatHistory.push(
@@ -468,73 +584,15 @@ export const useAppStore = create<AppStore>((set, get) => {
     }
 
     const replyKind = pollution ? "glitch" : "normal";
-    const queuedReplyLines: string[] = [];
-    let hasDeliveredFirstLine = false;
-    let streamCompleted = false;
-    let deliveryTask: Promise<void> | null = null;
-
-    const syncReplyProgress = () => {
-      set({
-        session: get().session,
-        isReplying: false,
-        isTaTyping: !streamCompleted || queuedReplyLines.length > 0
-      });
-      flushPendingQueue();
-    };
-
-    const deliverQueuedLines = () => {
-      if (deliveryTask) {
-        return deliveryTask;
-      }
-
-      deliveryTask = (async () => {
-        while (queuedReplyLines.length > 0) {
-          const line = queuedReplyLines.shift();
-
-          if (!line) {
-            continue;
-          }
-
-          if (hasDeliveredFirstLine) {
-            await waitForTaLineDelay();
-          }
-
-          appendTaReplyLine(line, replyKind);
-
-          if (!hasDeliveredFirstLine) {
-            hasDeliveredFirstLine = true;
-            syncReplyProgress();
-          }
-        }
-
-        deliveryTask = null;
-
-        if (streamCompleted) {
-          finishTaTyping();
-        }
-      })();
-
-      return deliveryTask;
-    };
-
-    await streamReply({
+    const replyLines = await buildReply({
       session: nextSession,
       originalInput: userInput,
       pollutedInput: pollution?.pollutedText ?? userInput,
+      triggerKeyword: triggerEvaluation.keyword,
       triggerReason: triggerEvaluation.triggerReason,
       events
-    }, (line) => {
-      queuedReplyLines.push(line);
-      void deliverQueuedLines();
     });
-
-    streamCompleted = true;
-
-    if (deliveryTask) {
-      await deliveryTask;
-    } else {
-      finishTaTyping();
-    }
+    await streamTaReplyLines(replyLines, replyKind);
   },
 
   rollbackToMessage: (messageId) => {
@@ -605,7 +663,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         spaceVisitCount: nextCount,
         metaMemory:
           nextCount >= 2
-            ? [...state.session.metaMemory, "空间里出现了不属于你的动态。"]
+            ? [...state.session.metaMemory, "朋友圈里出现了不属于你的动态。"]
             : state.session.metaMemory
       };
 

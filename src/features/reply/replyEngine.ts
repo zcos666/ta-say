@@ -8,6 +8,7 @@ interface ReplyContext {
   session: SessionState;
   originalInput?: string;
   pollutedInput?: string;
+  triggerKeyword?: string;
   triggerReason?: TriggerReason;
   events?: StoryEvent[];
 }
@@ -20,6 +21,7 @@ function createReplyRequest({
   session,
   originalInput,
   pollutedInput,
+  triggerKeyword,
   triggerReason,
   events = []
 }: ReplyContext, desiredReplyLineCount: 1 | 2): TaReplyRequest {
@@ -27,6 +29,7 @@ function createReplyRequest({
     stage: session.stage,
     originalInput,
     pollutedInput,
+    triggerKeyword,
     events,
     loadCount: session.loadCount,
     sendCount: session.sendCount,
@@ -51,6 +54,7 @@ function buildFallbackResponse(
     reply: getFallbackReply(
       context.session,
       desiredReplyLineCount,
+      context.triggerKeyword,
       context.triggerReason,
       context.events
     ),

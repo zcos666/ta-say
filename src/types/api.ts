@@ -18,6 +18,7 @@ export interface TaReplyRequest {
   stage: string;
   originalInput?: string;
   pollutedInput?: string;
+  triggerKeyword?: string;
   events: string[];
   loadCount: number;
   sendCount: number;

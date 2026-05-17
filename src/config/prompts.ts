@@ -54,6 +54,7 @@ function createCommonUserContext(request: TaReplyRequest): string[] {
     `当前阶段：${request.stage}`,
     `TA 称呼：${request.taPronoun ?? "TA"}`,
     `触发原因：${request.triggerReason ?? "无"}`,
+    `本次命中关键词：${request.triggerKeyword ?? "无"}`,
     `已触发事件：${formatList(request.events)}`,
     `用户发送次数：${request.sendCount}`,
     `累计污染次数：${request.pollutionCount}`,

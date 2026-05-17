@@ -50,7 +50,7 @@ describe("llmClient", () => {
     vi.restoreAllMocks();
   });
 
-  it("按换行增量解析多句回复", async () => {
+  it("streamTaReply 会按换行拆成多句回复", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       createSseResponse([
         'data: {"choices":[{"delta":{"content":"第一句\\n第二"}}]}\n\n',

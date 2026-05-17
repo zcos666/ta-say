@@ -109,12 +109,38 @@ function SearchIcon() {
   );
 }
 
+function getChatDisturbanceLevel(stage: string) {
+  switch (stage) {
+    case "first_pollution":
+    case "draft_exposed":
+    case "time_pollution":
+      return 1;
+    case "save_loaded_once":
+    case "save_loaded_twice":
+    case "location_reveal":
+      return 2;
+    case "location_aftermath":
+    case "meta_break":
+    case "truth_reveal":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function normalizeHauntingText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 export function ChatPage() {
   const navigate = useNavigate();
   const session = useAppStore((state) => state.session);
   const isReplying = useAppStore((state) => state.isReplying);
   const isTaTyping = useAppStore((state) => state.isTaTyping);
   const pendingUserMessages = useAppStore((state) => state.pendingUserMessages);
+  const draftWhisper = useAppStore((state) => state.draftWhisper);
+  const draftEditCount = useAppStore((state) => state.draftEditCount);
+  const draftPauseLevel = useAppStore((state) => state.draftPauseLevel);
   const sendMessage = useAppStore((state) => state.sendMessage);
   const updateDraft = useAppStore((state) => state.updateDraft);
   const rollbackToMessage = useAppStore((state) => state.rollbackToMessage);
@@ -202,6 +228,32 @@ export function ChatPage() {
       : session.exitClickCount >= 1
         ? exitCopy.dialogBodies.warning
         : exitCopy.dialogBodies.default;
+  const disturbanceLevel = getChatDisturbanceLevel(session.stage);
+  const hauntingLines = [
+    ...session.deletedDrafts.slice(-2).map(normalizeHauntingText),
+    session.hardestSentence ? normalizeHauntingText(session.hardestSentence) : "",
+    latestMessage?.role === "user" ? normalizeHauntingText(latestMessage.displayedText) : "",
+  ].filter(Boolean);
+  const primaryHauntingLine = hauntingLines[0] || "";
+  const disturbanceCopy =
+    primaryHauntingLine ||
+    draftWhisper ||
+    (disturbanceLevel >= 3
+      ? "它不只是停在输入框后面，它在等你把真正那句打出来。"
+      : disturbanceLevel === 2
+        ? "这块区域开始记住你删掉的版本。"
+        : disturbanceLevel === 1
+          ? "输入框后面有东西在跟着你的停顿。"
+          : "");
+  const composerWarning =
+    draftWhisper ||
+    (disturbanceLevel >= 3
+      ? "异常增强：输入框后方出现持续残影。"
+      : disturbanceLevel === 2
+        ? "异常提示：删改痕迹正在被保留。"
+        : disturbanceLevel === 1
+          ? "异常提示：这里开始变得不太对。"
+          : "");
 
   const conversationItems = useMemo(() => {
     const storyPreviewText = latestMessage?.displayedText ?? "开始新的聊天";
@@ -271,6 +323,7 @@ export function ChatPage() {
       messages: session.chatHistory
     };
   }, [getStageStatus, mockConversations, pendingUserMessages, selectedConversationId, session.chatHistory, session.stage]);
+  const showComposerDisturbance = currentConversation.id === "z" && (disturbanceLevel > 0 || Boolean(draftWhisper));
 
   useEffect(() => {
     const node = streamRef.current;
@@ -475,13 +528,23 @@ export function ChatPage() {
           </div>
         </aside>
 
-        <section className="desktop-chat-main">
+        <section className={`desktop-chat-main disturbance-${disturbanceLevel}`}>
           {rollbackFlashVisible ? (
             <div
               key={rollbackFlashNonce}
               className="desktop-rollback-flash"
               onAnimationEnd={() => setRollbackFlashVisible(false)}
             />
+          ) : null}
+          {currentConversation.id === "z" && disturbanceLevel > 0 ? (
+            <div className={`desktop-haunting-presence disturbance-${disturbanceLevel}`} aria-hidden="true">
+              <div className="desktop-haunting-shadow" />
+              <div className="desktop-haunting-copy">
+                {(hauntingLines.length > 0 ? hauntingLines : ["你删掉的那句还在看着这里。"]).map((line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ))}
+              </div>
+            </div>
           ) : null}
           <header className="desktop-chat-header">
             <div>
@@ -582,9 +645,9 @@ export function ChatPage() {
                 return (
                   <article key={message.id} className="desktop-space-notice-row">
                     <div className="desktop-space-notice-card">
-                      <div className="desktop-space-notice-badge">QQ 空间提醒</div>
-                      <strong className="desktop-space-notice-title">{currentConversation.name}刚刚更新了说说</strong>
-                      <p className="desktop-space-notice-copy">{message.displayedText.replace(/^.*空间：/, "")}</p>
+                      <div className="desktop-space-notice-badge">朋友圈提醒</div>
+                      <strong className="desktop-space-notice-title">{currentConversation.name}刚刚更新了朋友圈</strong>
+                      <p className="desktop-space-notice-copy">{message.displayedText.replace(/^.*(?:空间|朋友圈)：/, "")}</p>
                       <time className="desktop-space-notice-time">{formatTime(message.timestamp)}</time>
                     </div>
                   </article>
@@ -711,9 +774,23 @@ export function ChatPage() {
           ) : null}
 
           {currentConversation.view !== "articles" ? (
-            <footer className="desktop-chat-composer">
+            <footer className={`desktop-chat-composer disturbance-${disturbanceLevel}`}>
             <div className="desktop-composer-editor">
-              <div className="desktop-composer-input-wrap">
+              <div
+                className={`desktop-composer-input-wrap disturbance-${disturbanceLevel}${showComposerDisturbance ? " has-warning" : ""}`}
+              >
+                {showComposerDisturbance ? (
+                  <div className={`desktop-composer-alert disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`}>
+                    <strong>异常</strong>
+                    <span>{composerWarning}</span>
+                  </div>
+                ) : null}
+                {showComposerDisturbance ? (
+                  <div className={`desktop-input-undercurrent disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`} aria-hidden="true">
+                    <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
+                    <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
+                  </div>
+                ) : null}
                 <textarea
                   className="desktop-chat-input"
                   placeholder={`给${currentConversation.name}发消息`}
@@ -745,6 +822,12 @@ export function ChatPage() {
                   }}
                 />
                 <span className="desktop-enter-hint">Enter 发送</span>
+                {currentConversation.id === "z" && draftWhisper ? (
+                  <div className={`desktop-draft-whisper level-${draftPauseLevel}`}>
+                    <span>{draftWhisper}</span>
+                    {draftEditCount >= 2 ? <small>这一句已经被改了 {draftEditCount} 次。</small> : null}
+                  </div>
+                ) : null}
               </div>
               <button
                 className="desktop-send-button"
