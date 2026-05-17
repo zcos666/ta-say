@@ -37,7 +37,6 @@ describe("translateConversation", () => {
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      fearType: "害怕说真话",
       taPronoun: "TA",
       endingType: "梦醒翻译家",
       pollutionCount: 1,
@@ -68,7 +67,6 @@ describe("translateConversation", () => {
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      fearType: "害怕说真话",
       taPronoun: "TA",
       endingType: "草稿幽灵",
       pollutionCount: 1,
@@ -90,7 +88,6 @@ describe("translateConversation", () => {
 
     const result = await translateConversation({
       chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      fearType: "害怕说真话",
       taPronoun: "TA",
       endingType: "草稿幽灵",
       pollutionCount: 7,

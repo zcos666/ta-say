@@ -153,7 +153,6 @@ export function ShareCardPage() {
     deletedDraftCount: useAppStore((state) => state.session.deletedDraftCount),
     deletedDrafts: useAppStore((state) => state.session.deletedDrafts),
     endingType: useAppStore((state) => state.session.endingType),
-    fearType: useAppStore((state) => state.session.fearType),
     hasFinishedGame: useAppStore((state) => state.session.hasFinishedGame),
     hardestSentence: useAppStore((state) => state.session.hardestSentence),
     loadCount: useAppStore((state) => state.session.loadCount),

@@ -1,4 +1,4 @@
-import type { FearType, StoryStage, TaPronoun } from "../../types/story";
+import type { StoryStage, TaPronoun } from "../../types/story";
 import { createChatMessage, type ChatMessage } from "../../types/session";
 import { storyCopy, uiCopy } from "../../config/hardcodedCopy";
 
@@ -26,15 +26,3 @@ export function getStageStatus(stage: StoryStage): string {
   return uiCopy.stageStatus[stage] ?? uiCopy.stageStatus.default;
 }
 
-export function getFearFallbackCopy(fearType: FearType | null): string {
-  switch (fearType) {
-    case "害怕被抛下":
-      return "我不是不在乎，我只是先假装你不会离开。";
-    case "害怕被控制":
-      return "我嘴上说随便，其实每一步都怕被你决定。";
-    case "害怕说真话":
-      return "我不是没有真话，我只是习惯把它吞回去。";
-    default:
-      return "我已经把真正的意思说出来了，你还要继续装作没看见吗？";
-  }
-}

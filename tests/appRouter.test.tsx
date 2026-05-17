@@ -14,7 +14,7 @@ describe("AppRouter", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "过拟合恋人" })).toBeInTheDocument();
+    expect(screen.getByText("TA 以什么称呼出现？")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始聊天" })).toBeInTheDocument();
   });
 
@@ -28,6 +28,6 @@ describe("AppRouter", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "过拟合恋人" })).toBeInTheDocument();
+    expect(screen.getByText("TA 以什么称呼出现？")).toBeInTheDocument();
   });
 });

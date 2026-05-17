@@ -63,7 +63,6 @@ export function createSnapshotFromMessage(session: SessionState, messageId: stri
   const pollutedMessages = userMessages.filter((message) => Boolean(message.originalText));
 
   return {
-    fearType: session.fearType,
     taPronoun: session.taPronoun,
     stage: inferStageFromHistory(chatHistory),
     chatHistory,
@@ -136,7 +135,6 @@ export function restoreFromMessage(
 
   const nextSession: SessionState = {
     ...session,
-    fearType: snapshot.fearType,
     taPronoun: snapshot.taPronoun,
     stage: nextLoadCount === 1 ? "save_loaded_once" : "save_loaded_twice",
     chatHistory: [

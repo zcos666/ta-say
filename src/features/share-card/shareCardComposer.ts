@@ -9,7 +9,6 @@ export interface ShareCardComposerInput {
     | "deletedDraftCount"
     | "deletedDrafts"
     | "endingType"
-    | "fearType"
     | "hasFinishedGame"
     | "hardestSentence"
     | "loadCount"
@@ -41,7 +40,7 @@ export interface ShareCardViewModel {
   hardestSentence: string;
   translatedHighlight: string;
   shareLine: string;
-  fearTypeLabel: string;
+  profileTag: string;
   hasFinishedGame: boolean;
   metrics: ShareCardMetric[];
   profileCode: string;
@@ -62,29 +61,10 @@ const endingShareLineFallbacks: Record<string, string> = {
   过度理解者: "你总说都可以，其实你只是没把答案说出口。",
 };
 
-const fearTypeSubtitleMap: Record<string, string> = {
-  害怕被抛下: "你不是不在意，你只是总把等待演成体面。",
-  害怕被控制: "你不是没有偏好，你只是把边界先藏了起来。",
-  害怕说真话: "你不是不会表达，你只是把真话说成了反话。",
-};
-
-const fearTypeLabelMap: Record<string, string> = {
-  害怕被抛下: "害怕被抛下型",
-  害怕被控制: "害怕被控制型",
-  害怕说真话: "害怕说真话型",
-};
-
-const fearTypeCodeMap: Record<string, string> = {
-  害怕被抛下: "LN",
-  害怕被控制: "GD",
-  害怕说真话: "HS",
-};
-
-const fearTypeCodeLegendMap: Record<string, string> = {
-  害怕被抛下: "LN = 留人感强，特别怕被忽然放下。",
-  害怕被控制: "GD = Guard，边界感强，怕一开口就失去主动。",
-  害怕说真话: "HS = Hush，真心很多，但习惯先藏起来。",
-};
+const GENERIC_SUBTITLE = "你不是标签化的某一种人，你只是把最难说的话留在了更晚一点。";
+const GENERIC_PROFILE_TAG = "关系样本";
+const GENERIC_PROFILE_CODE = "RL";
+const GENERIC_PROFILE_CODE_LEGEND = "RL = Relation Loop，基于本轮聊天行为生成的关系样本。";
 
 const axisCodeMap: Record<string, string> = {
   嘴硬值: "MK",
@@ -100,46 +80,18 @@ const axisCodeLegendMap: Record<string, string> = {
   显真率: "TR = Truth，开始直接说真话。",
 };
 
-const resultLabelMap: Record<string, Record<string, string>> = {
-  害怕被抛下: {
-    嘴硬值: "嘴上没事病",
-    撤回欲: "发送前失踪",
-    重开欲: "关系重启癖",
-    显真率: "真心外放中",
-  },
-  害怕被控制: {
-    嘴硬值: "边界过载中",
-    撤回欲: "表达撤离术",
-    重开欲: "回档控场欲",
-    显真率: "清醒协商期",
-  },
-  害怕说真话: {
-    嘴硬值: "反话自动播放",
-    撤回欲: "输入框临阵脱逃",
-    重开欲: "上一句重来病",
-    显真率: "真话恢复训练",
-  },
+const resultLabelMap: Record<string, string> = {
+  嘴硬值: "反话自动播放",
+  撤回欲: "输入框临阵脱逃",
+  重开欲: "上一句重来病",
+  显真率: "真话恢复训练",
 };
 
-const verdictLineMap: Record<string, Record<string, string>> = {
-  害怕被抛下: {
-    嘴硬值: "你嘴上说没关系，其实每一句都在问：你会不会还是选我？",
-    撤回欲: "你不是不想说，你只是怕真心一发出去，就再也收不回来。",
-    重开欲: "你总想把上一句改好，因为你太怕一个失误就把人推远。",
-    显真率: "你开始不再兜圈子，而是想认真确认自己有没有被爱着。",
-  },
-  害怕被控制: {
-    嘴硬值: "你习惯先把语气放冷一点，免得一认真就被带进别人的节奏。",
-    撤回欲: "你删掉的不只是句子，是那种一说出口就会失控的感觉。",
-    重开欲: "你总想重来，不是恋旧，是想把边界重新摆回自己手里。",
-    显真率: "你已经开始把规则说在前面，而不是靠沉默保住自己。",
-  },
-  害怕说真话: {
-    嘴硬值: "你最会把在意写成反话，让别人以为你只是随口一说。",
-    撤回欲: "你的真心常常停在输入框里，差一点发出，差一点被看见。",
-    重开欲: "你不是想重来剧情，你只是想试一次不那么拧巴的自己。",
-    显真率: "你已经越来越像那个肯把真实感受直接端出来的人了。",
-  },
+const verdictLineMap: Record<string, string> = {
+  嘴硬值: "你最会把在意写成轻描淡写，让别人以为你只是随口一说。",
+  撤回欲: "你的真心常常停在输入框里，差一点发出，差一点被看见。",
+  重开欲: "你不是只想重来剧情，你只是想把关系修回一个更安全的版本。",
+  显真率: "你已经越来越像那个肯把真实感受直接端出来的人了。",
 };
 
 const dominantAxisSummaryMap: Record<string, string> = {
@@ -270,7 +222,6 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
   const endingType = resolveEndingType(session, storedCard);
   const hardestSentence = resolveHardestSentence(session, storedCard);
   const translatedHighlight = resolveTranslatedHighlight(session.translatorReport, storedCard);
-  const fearType = storedCard?.fearType || session.fearType || "害怕说真话";
   const shareLine = resolveShareLine(endingType, storedCard);
   const pollutionCount = storedCard?.pollutionCount ?? session.pollutionCount;
   const deletedDraftCount = storedCard?.deletedDraftCount ?? session.deletedDraftCount;
@@ -291,24 +242,20 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
   ];
   const dominantAxis = [...profileAxes].sort((left, right) => right.value - left.value)[0] ?? profileAxes[0];
   const dominantAxisLabel = dominantAxis?.label ?? "显真率";
-  const profileCode = `${fearTypeCodeMap[fearType] ?? "HS"}${axisCodeMap[dominantAxisLabel] ?? "TR"}`;
-  const resultLabel =
-    resultLabelMap[fearType]?.[dominantAxisLabel] ??
-    resultLabelMap["害怕说真话"]["显真率"];
-  const verdictLine =
-    verdictLineMap[fearType]?.[dominantAxisLabel] ??
-    verdictLineMap["害怕说真话"]["显真率"];
+  const profileCode = `${GENERIC_PROFILE_CODE}${axisCodeMap[dominantAxisLabel] ?? "TR"}`;
+  const resultLabel = resultLabelMap[dominantAxisLabel] ?? resultLabelMap["显真率"];
+  const verdictLine = verdictLineMap[dominantAxisLabel] ?? verdictLineMap["显真率"];
 
   return {
     title: "《过拟合恋人》关系幻觉报告",
-    subtitle: fearTypeSubtitleMap[fearType] || fearTypeSubtitleMap["害怕说真话"],
+    subtitle: GENERIC_SUBTITLE,
     endingType,
     resultLabel,
     verdictLine,
     hardestSentence: wrapQuote(hardestSentence),
     translatedHighlight: wrapQuote(translatedHighlight),
     shareLine,
-    fearTypeLabel: fearTypeLabelMap[fearType] || `${fearType}型`,
+    profileTag: GENERIC_PROFILE_TAG,
     hasFinishedGame: session.hasFinishedGame,
     metrics: [
       { label: "反义污染", value: `× ${pollutionCount}` },
@@ -316,7 +263,7 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
       { label: "读档失败", value: `× ${loadCount}` },
     ],
     profileCode,
-    codeLegend: `${fearTypeCodeLegendMap[fearType] ?? ""} ${axisCodeLegendMap[dominantAxisLabel] ?? ""}`.trim(),
+    codeLegend: `${GENERIC_PROFILE_CODE_LEGEND} ${axisCodeLegendMap[dominantAxisLabel] ?? ""}`.trim(),
     profileSummary:
       dominantAxisSummaryMap[dominantAxisLabel] ?? dominantAxisSummaryMap["显真率"],
     profileAxes,

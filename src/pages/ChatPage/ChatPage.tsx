@@ -138,9 +138,12 @@ export function ChatPage() {
   const toastTimerRef = useRef<number | null>(null);
   const lastToastMessageIdRef = useRef<string | null>(null);
   const [systemToast, setSystemToast] = useState<ChatMessage | null>(null);
+  const [rollbackFlashNonce, setRollbackFlashNonce] = useState(0);
+  const [rollbackFlashVisible, setRollbackFlashVisible] = useState(false);
+  const endingTransitionActive = session.stage === "location_aftermath";
 
   useEffect(() => {
-    if (!session.fearType || !session.taPronoun) {
+    if (!session.taPronoun) {
       navigate("/", { replace: true });
       return;
     }
@@ -148,7 +151,7 @@ export function ChatPage() {
     if (session.stage === "meta_break" || session.stage === "truth_reveal") {
       navigate("/truth");
     }
-  }, [navigate, session.fearType, session.stage, session.taPronoun]);
+  }, [navigate, session.stage, session.taPronoun]);
 
   useEffect(() => {
     if (session.stage !== "location_aftermath") {
@@ -277,6 +280,28 @@ export function ChatPage() {
     node.scrollTop = node.scrollHeight;
   }, [currentConversation.messages, selectedConversationId]);
 
+  function showSystemToast(displayedText: string, kind: ChatMessage["kind"] = "warning") {
+    const nextToast: ChatMessage = {
+      id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      role: "system",
+      displayedText,
+      kind,
+      timestamp: Date.now()
+    };
+
+    lastToastMessageIdRef.current = nextToast.id;
+    setSystemToast(nextToast);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setSystemToast((current) => (current?.id === nextToast.id ? null : current));
+      toastTimerRef.current = null;
+    }, 3200);
+  }
+
   useEffect(() => {
     if (currentConversation.id !== "z") {
       setSystemToast(null);
@@ -296,17 +321,7 @@ export function ChatPage() {
       return;
     }
 
-    lastToastMessageIdRef.current = latestSystemNotice.id;
-    setSystemToast(latestSystemNotice);
-
-    if (toastTimerRef.current) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-
-    toastTimerRef.current = window.setTimeout(() => {
-      setSystemToast((current) => (current?.id === latestSystemNotice.id ? null : current));
-      toastTimerRef.current = null;
-    }, 3200);
+    showSystemToast(latestSystemNotice.displayedText, latestSystemNotice.kind);
   }, [currentConversation.id, currentConversation.messages]);
 
   function handleSend() {
@@ -398,8 +413,8 @@ export function ChatPage() {
   }
 
   return (
-    <main className="screen desktop-chat-screen">
-      <section className="desktop-chat-shell">
+    <main className={`screen desktop-chat-screen${endingTransitionActive ? " ending-transition-screen" : ""}`}>
+      <section className={`desktop-chat-shell${endingTransitionActive ? " ending-transition-shell" : ""}`}>
         <aside className="desktop-app-sidebar" aria-label="功能导航">
           <div className="desktop-app-sidebar-top">
             <button className="desktop-app-icon active" type="button" aria-label="聊天">
@@ -461,6 +476,13 @@ export function ChatPage() {
         </aside>
 
         <section className="desktop-chat-main">
+          {rollbackFlashVisible ? (
+            <div
+              key={rollbackFlashNonce}
+              className="desktop-rollback-flash"
+              onAnimationEnd={() => setRollbackFlashVisible(false)}
+            />
+          ) : null}
           <header className="desktop-chat-header">
             <div>
               <h1 className="desktop-chat-title">{currentConversation.name}</h1>
@@ -477,13 +499,16 @@ export function ChatPage() {
                 <button
                   className={`desktop-header-button${rollbackDisabled ? " rollback-alert" : ""}`}
                   type="button"
-                  disabled={rollbackDisabled || isReplying || isTaTyping}
+                  disabled={isReplying || isTaTyping}
                   aria-label={
                     rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"
                   }
                   title={rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"}
                   onClick={() => {
                     if (rollbackDisabled) {
+                      setRollbackFlashVisible(true);
+                      setRollbackFlashNonce((current) => current + 1);
+                      showSystemToast(rollbackCopy.blockedSystemNotice, "glitch");
                       return;
                     }
                     setRollbackMode((current) => !current);
@@ -741,6 +766,13 @@ export function ChatPage() {
             </footer>
           ) : null}
         </section>
+        {endingTransitionActive ? (
+          <div className="ending-transition-overlay" aria-hidden="true">
+            <span className="ending-transition-wave ending-transition-wave-primary" />
+            <span className="ending-transition-wave ending-transition-wave-secondary" />
+            <span className="ending-transition-vignette" />
+          </div>
+        ) : null}
       </section>
     </main>
   );

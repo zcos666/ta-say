@@ -12,7 +12,6 @@ function createBaseSession(): SessionState {
   });
 
   return {
-    fearType: "害怕被抛下",
     taPronoun: "TA",
     stage: "first_pollution",
     chatHistory: [taIntro, userFirst, taReply, userSecond],

@@ -98,7 +98,6 @@ describe("llmClient", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await llmClient.loveTranslate("A: 你今天怎么这么晚回？\nB: 没事，你忙吧。", {
-      fearType: "害怕说真话",
       taPronoun: "TA",
     });
 

@@ -31,7 +31,6 @@ describe("ShareCardPage", () => {
         hasFinishedGame: true,
         endingType: "梦醒翻译家",
         hardestSentence: "没事，你忙吧。",
-        fearType: "害怕说真话",
         translatorReport: {
           original: "没事，你忙吧。",
           possibleMeaning: "我其实很在意。",
@@ -43,7 +42,6 @@ describe("ShareCardPage", () => {
           endingType: "梦醒翻译家",
           hardestSentence: "没事，你忙吧。",
           shareLine: "通关之后，你终于肯把情绪翻译成人话。",
-          fearType: "害怕说真话",
           pollutionCount: 2,
           deletedDraftCount: 1,
           loadCount: 0,

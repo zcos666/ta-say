@@ -265,6 +265,7 @@ input {
 .desktop-chat-shell {
   width: 100%;
   height: calc(100dvh - 24px);
+  position: relative;
   display: grid;
   grid-template-columns: 56px 242px minmax(0, 1fr);
   background: #ffffff;
@@ -272,6 +273,77 @@ input {
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 16px 42px rgba(33, 35, 32, 0.12);
+}
+
+.ending-transition-screen {
+  animation: ending-screen-pulse 9.8s linear forwards;
+}
+
+.ending-transition-shell {
+  isolation: isolate;
+  animation: ending-shell-warp 9.8s ease-in forwards;
+}
+
+.ending-transition-overlay {
+  position: absolute;
+  inset: -12%;
+  z-index: 15;
+  pointer-events: none;
+  opacity: 0;
+  animation: ending-overlay-fade 9.8s ease-in forwards;
+}
+
+.ending-transition-wave,
+.ending-transition-vignette {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.ending-transition-wave-primary {
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 198, 216, 0.08) 0 18px,
+      rgba(119, 47, 86, 0.14) 18px 36px,
+      rgba(44, 17, 55, 0.08) 36px 56px
+    );
+  mix-blend-mode: multiply;
+  filter: blur(4px);
+  animation: ending-wave-primary 9s ease-in-out infinite alternate;
+}
+
+.ending-transition-wave-secondary {
+  background:
+    conic-gradient(
+      from 180deg at 52% 48%,
+      rgba(255, 255, 255, 0.08),
+      rgba(133, 203, 255, 0.12),
+      rgba(255, 134, 173, 0.16),
+      rgba(73, 28, 89, 0.28),
+      rgba(255, 255, 255, 0.08)
+    );
+  mix-blend-mode: screen;
+  filter: blur(28px);
+  animation: ending-wave-secondary 11s linear infinite;
+}
+
+.ending-transition-vignette {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 42%, rgba(71, 15, 46, 0.12) 66%, rgba(15, 7, 20, 0.46) 100%);
+  animation: ending-vignette-deepen 9.8s ease-in forwards;
+}
+
+.final-transition-screen {
+  background:
+    radial-gradient(circle at top, rgba(232, 214, 224, 0.38), transparent 42%),
+    linear-gradient(180deg, #f4edf1 0%, #ebe4ea 42%, #f4f1ef 100%);
+  animation: final-screen-settle 1.6s ease-out both;
+}
+
+.truth-stage-entry,
+.wake-stage-entry {
+  animation: final-content-rise 1.6s ease-out both;
 }
 
 .desktop-app-sidebar {
@@ -938,6 +1010,29 @@ input {
   }
 }
 
+.desktop-rollback-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, rgba(255, 80, 80, 0.2), transparent 45%),
+    rgba(255, 56, 56, 0.14);
+  animation: desktop-rollback-flash 700ms ease-in-out 2;
+}
+
+@keyframes desktop-rollback-flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  25%,
+  75% {
+    opacity: 1;
+  }
+}
+
 .favorite-article-feed {
   display: grid;
   gap: 16px;
@@ -1198,6 +1293,120 @@ input {
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes ending-screen-pulse {
+  0% {
+    background: #d8dad7;
+  }
+
+  35% {
+    background: #d3d0d9;
+  }
+
+  70% {
+    background: #c9c2d0;
+  }
+
+  100% {
+    background: #201624;
+  }
+}
+
+@keyframes ending-shell-warp {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: hue-rotate(0deg) saturate(1) brightness(1);
+  }
+
+  35% {
+    transform: scale(1.006) rotate(-0.2deg);
+    filter: hue-rotate(12deg) saturate(1.08) brightness(0.98);
+  }
+
+  70% {
+    transform: scale(1.014) rotate(0.3deg) skewY(-0.3deg);
+    filter: hue-rotate(28deg) saturate(1.2) brightness(0.94);
+  }
+
+  100% {
+    transform: scale(1.028) rotate(-0.45deg) skewY(0.5deg);
+    filter: hue-rotate(48deg) saturate(1.28) brightness(0.82);
+  }
+}
+
+@keyframes ending-overlay-fade {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.18;
+  }
+
+  55% {
+    opacity: 0.42;
+  }
+
+  100% {
+    opacity: 0.88;
+  }
+}
+
+@keyframes ending-wave-primary {
+  0% {
+    transform: scale(1) rotate(0deg) translate3d(-1.5%, -1%, 0);
+  }
+
+  100% {
+    transform: scale(1.12) rotate(10deg) translate3d(2%, 1.2%, 0);
+  }
+}
+
+@keyframes ending-wave-secondary {
+  from {
+    transform: scale(1.04) rotate(0deg);
+  }
+
+  to {
+    transform: scale(1.16) rotate(360deg);
+  }
+}
+
+@keyframes ending-vignette-deepen {
+  0% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes final-screen-settle {
+  0% {
+    opacity: 0;
+    filter: blur(12px) saturate(1.25);
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: scale(1);
+  }
+}
+
+@keyframes final-content-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

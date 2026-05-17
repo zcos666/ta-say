@@ -12,15 +12,13 @@ export function WakePage() {
   }, [finishWakeUp]);
 
   return (
-    <main className="screen">
-      <section className="shell page page-body stack">
-        <p className="tiny">梦醒页</p>
+    <main className="screen final-transition-screen">
+      <section className="shell page page-body stack wake-stage-entry">
         {wakeLines.map((line) => (
           <div key={line} className="card">
             {line}
           </div>
         ))}
-        <p className="meta-copy">这轮 Meta 主链路已完成，首页现在会开放“进入恋爱翻译官”的入口。</p>
         <div className="spacer" />
         <div className="stack">
           <button className="button-primary" onClick={() => navigate("/translator")}>

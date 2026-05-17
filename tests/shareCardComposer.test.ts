@@ -4,7 +4,6 @@ import type { SessionState } from "../src/types/session";
 
 function createSession(overrides: Partial<SessionState> = {}): SessionState {
   return {
-    fearType: "害怕说真话",
     taPronoun: "TA",
     stage: "share_ready",
     chatHistory: [],
@@ -35,7 +34,6 @@ describe("shareCardComposer", () => {
           endingType: "草稿幽灵",
           hardestSentence: "“缓存句子”",
           shareLine: "缓存短句",
-          fearType: "害怕被控制",
           pollutionCount: 9,
           deletedDraftCount: 4,
           loadCount: 2,
@@ -48,10 +46,10 @@ describe("shareCardComposer", () => {
     expect(data.endingType).toBe("草稿幽灵");
     expect(data.shareLine).toBe("缓存短句");
     expect(data.metrics[0]?.value).toBe("× 9");
-    expect(data.profileCode).toBe("GDMK");
+    expect(data.profileCode).toBe("RLMK");
     expect(data.profileAxes).toHaveLength(4);
-    expect(data.resultLabel).toBe("边界过载中");
-    expect(data.verdictLine).toContain("语气放冷一点");
+    expect(data.resultLabel).toBe("反话自动播放");
+    expect(data.verdictLine).toContain("轻描淡写");
     expect(data.profileAxes[0]?.description).toContain("越高");
   });
 
@@ -68,6 +66,6 @@ describe("shareCardComposer", () => {
     expect(data.shareLine).toContain("没事");
     expect(data.dominantAxisLabel).toBe("嘴硬值");
     expect(data.resultLabel).toBe("反话自动播放");
-    expect(data.profileCode).toBe("HSMK");
+    expect(data.profileCode).toBe("RLMK");
   });
 });

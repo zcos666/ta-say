@@ -1,5 +1,5 @@
 import type { LoveTranslationReport } from "./api";
-import type { FearType, StoryStage, TaPronoun } from "./story";
+import type { StoryStage, TaPronoun } from "./story";
 
 export interface ChatMessage {
   id: string;
@@ -14,14 +14,12 @@ export interface ShareCardData {
   endingType: string;
   hardestSentence: string;
   shareLine: string;
-  fearType: FearType | null;
   pollutionCount: number;
   deletedDraftCount: number;
   loadCount: number;
   aiTranslation: string;
 }
 export interface SessionState {
-  fearType: FearType | null;
   taPronoun: TaPronoun | null;
   stage: StoryStage;
   chatHistory: ChatMessage[];
@@ -46,7 +44,6 @@ export interface SessionState {
 }
 
 export interface SessionSnapshot {
-  fearType: FearType | null;
   taPronoun: TaPronoun | null;
   stage: StoryStage;
   chatHistory: ChatMessage[];
@@ -88,7 +85,6 @@ export function createChatMessage(
 
 export function createEmptySession(): SessionState {
   return {
-    fearType: null,
     taPronoun: null,
     stage: "start",
     chatHistory: [],

@@ -5,7 +5,6 @@ import { evaluateTriggers } from "../src/features/story/triggerEngine";
 function createSession(overrides: Partial<SessionState> = {}): SessionState {
   return {
     ...createEmptySession(),
-    fearType: "害怕被抛下",
     taPronoun: "TA",
     stage: "normal_chat",
     ...overrides,

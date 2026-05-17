@@ -1,4 +1,4 @@
-import type { FearType, LoveTranslationReport } from "../types/api";
+import type { LoveTranslationReport } from "../types/api";
 
 type FallbackEntry = {
   match: RegExp[];
@@ -13,36 +13,30 @@ const baseReport: LoveTranslationReport = {
   actionAdvice: "别用试探包装需求，把具体的感受说出来，关系才不会被误会耗空。",
 };
 
-export const translatorFallbacks: Record<FearType, FallbackEntry[]> = {
-  害怕被抛下: [
-    {
-      match: [/没事/, /随便/],
-      report: {
-        ...baseReport,
-        possibleMeaning: "我怕自己显得太黏人，所以只好假装轻松。",
-        sharpTranslation: "我嘴上说没事，心里其实在担心你已经把我放到不重要的位置。",
-      },
+export const translatorFallbacks: FallbackEntry[] = [
+  {
+    match: [/没事/, /算了/],
+    report: baseReport,
+  },
+  {
+    match: [/都行/, /你决定/],
+    report: {
+      ...baseReport,
+      original: "都行，你决定吧。",
+      possibleMeaning: "我不是完全没有偏好，我只是懒得再把自己的感受解释一遍。",
+      sharpTranslation: "不是我真的都行，是我已经先把想说的话缩回去了。",
+      betterExpression: "我现在有点拿不准，但我更想先听听你的想法，再一起选一个我们都舒服的方案。",
     },
-  ],
-  害怕被控制: [
-    {
-      match: [/都行/, /你决定/],
-      report: {
-        ...baseReport,
-        original: "都行，你决定吧。",
-        possibleMeaning: "我不想再解释自己的偏好，因为我担心一表达就会被定义成麻烦。",
-        sharpTranslation: "不是我真的都行，是我已经懒得争取自己想要的东西。",
-        betterExpression: "我现在有点拿不准，但我更倾向于先听听你的想法，再一起选一个我们都舒服的方案。",
-      },
+  },
+  {
+    match: [/随便/, /之后再说/],
+    report: {
+      ...baseReport,
+      possibleMeaning: "我不是真的轻松，我只是先把情绪压低，免得显得自己很在意。",
+      sharpTranslation: "我把在意说轻，不是因为没感觉，而是怕真说出来以后更难收回。",
     },
-  ],
-  害怕说真话: [
-    {
-      match: [/没事/, /算了/],
-      report: baseReport,
-    },
-  ],
-};
+  },
+];
 
 export const shareLineFallbacks: Record<string, string> = {
   草稿幽灵: "你删掉的话，比你发出去的更诚实。",

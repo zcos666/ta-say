@@ -15,7 +15,7 @@ describe("buildPollutionResult", () => {
     expect(result?.pollutedText).toContain("我很在意");
   });
 
-  it("第三次发送时在未命中关键词下走 fearType fallback", () => {
+  it("第三次发送时在未命中关键词下走默认污染 fallback", () => {
     const result = buildPollutionResult({
       userInput: "嗯",
       stage: "intro",

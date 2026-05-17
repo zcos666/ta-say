@@ -333,7 +333,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(({ data }, r
       <p style={styles.sectionLabel}>这轮现象</p>
       <div style={styles.typeLine}>
         <h2 style={styles.ending}>{data.resultLabel}</h2>
-        <span style={styles.typeBadge}>{data.fearTypeLabel}</span>
+        <span style={styles.typeBadge}>{data.profileTag}</span>
       </div>
       <p style={styles.verdictLine}>{data.verdictLine}</p>
       <p style={{ ...styles.subtitle, margin: 0 }}>{data.profileSummary}</p>

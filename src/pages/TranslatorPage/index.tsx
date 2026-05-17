@@ -4,7 +4,6 @@ import { useAppStore } from "../../app/store/useAppStore";
 import TranslationReportCard from "../../components/share/TranslationReportCard";
 import { defaultMockChat } from "../../config/fallbacks";
 import {
-  FEAR_TYPE_OPTIONS,
   TA_PRONOUN_OPTIONS,
   translateConversation,
   type TranslateConversationResult,
@@ -14,7 +13,7 @@ import {
   type VoiceInputPresetOption,
   type VoiceInputState,
 } from "../../services/voice/voiceInputService";
-import type { FearType, TaPronoun } from "../../types/api";
+import type { TaPronoun } from "../../types/api";
 
 const pageStyles: Record<string, CSSProperties> = {
   page: {
@@ -246,7 +245,6 @@ function getInitialChatText(hardestSentence: string) {
 }
 
 export default function TranslatorPage() {
-  const fearType = useAppStore((state) => state.session.fearType);
   const taPronoun = useAppStore((state) => state.session.taPronoun);
   const hardestSentence = useAppStore((state) => state.session.hardestSentence);
   const endingType = useAppStore((state) => state.session.endingType);
@@ -301,7 +299,6 @@ export default function TranslatorPage() {
     try {
       const result = await translateConversation({
         chatText,
-        fearType,
         taPronoun,
         endingType,
         pollutionCount,
@@ -324,10 +321,6 @@ export default function TranslatorPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleFearTypeChange(nextFearType: FearType) {
-    patchSession({ fearType: nextFearType });
   }
 
   function handlePronounChange(nextPronoun: TaPronoun) {
@@ -407,25 +400,6 @@ export default function TranslatorPage() {
                 placeholder={defaultMockChat}
                 style={pageStyles.textarea}
               />
-            </div>
-
-            <div style={pageStyles.field}>
-              <span style={pageStyles.label}>恐惧标签</span>
-              <div style={pageStyles.pillGroup}>
-                {FEAR_TYPE_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    style={{
-                      ...pageStyles.pill,
-                      ...(fearType === option ? pageStyles.pillActive : undefined),
-                    }}
-                    onClick={() => handleFearTypeChange(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div style={pageStyles.field}>

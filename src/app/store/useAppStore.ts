@@ -20,7 +20,7 @@ import {
   type SessionState,
   type ShareCardData
 } from "../../types/session";
-import type { FearType, StoryEvent, TaPronoun } from "../../types/story";
+import type { StoryEvent, TaPronoun } from "../../types/story";
 
 let timedPollutionTimer: number | undefined;
 const DRAFT_DELETE_SETTLE_MS = 450;
@@ -92,7 +92,7 @@ interface AppStore {
   pendingUserMessages: SessionState["chatHistory"];
   session: SessionState;
   hydrate: () => void;
-  selectSetup: (fearType: FearType, taPronoun: TaPronoun) => Promise<void>;
+  selectSetup: (taPronoun: TaPronoun) => Promise<void>;
   updateDraft: (
     previousValue: string,
     nextValue: string,
@@ -250,11 +250,10 @@ export const useAppStore = create<AppStore>((set, get) => {
     });
   },
 
-  selectSetup: async (fearType, taPronoun) => {
+  selectSetup: async (taPronoun) => {
     resetPendingDeletedDraft();
     const persisted = storageRepository.read();
     const nextSession = withPersistentFields(createEmptySession(), persisted);
-    nextSession.fearType = fearType;
     nextSession.taPronoun = taPronoun;
     nextSession.stage = "intro";
     nextSession.chatHistory = [];
@@ -555,7 +554,9 @@ export const useAppStore = create<AppStore>((set, get) => {
     persistSession(result.nextSession);
 
     void (async () => {
-      await streamTaReplyLines(result.replyLines, result.replyKind ?? "warning");
+      await streamTaReplyLines(result.replyLines, result.replyKind ?? "warning", {
+        waitBeforeFirstLine: true
+      });
     })();
   },
 
@@ -690,7 +691,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         const nextSession = {
         ...createEmptySession(),
         hasFinishedGame: persisted.hasFinishedGame,
-        loadCount: persisted.loadCount,
+        loadCount: 0,
         metaMemory: [...persisted.metaMemory],
         shareCardData: persisted.shareCardData
         };

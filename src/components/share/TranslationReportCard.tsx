@@ -286,7 +286,7 @@ export function TranslationReportCard({
 
   const badges = [
     shareCardData.endingType,
-    shareCardData.fearType ?? "未选择恐惧标签",
+    "无标签拆解",
     usedFallback ? "本地翻译降级" : "",
     shareLineUsedFallback ? "分享短句降级" : "",
   ].filter(Boolean);

@@ -15,7 +15,6 @@ function createPersistedState(overrides: Partial<PersistedState> = {}): Persiste
 describe("restoreFromAutoSave", () => {
   it("第一次读档恢复快照但保留 deletedDrafts 与 loadCount 递增", () => {
     const session = createEmptySession();
-    session.fearType = "害怕说真话";
     session.taPronoun = "TA";
     session.stage = "first_pollution";
     session.chatHistory = [createChatMessage("ta", "hello")];

@@ -31,9 +31,8 @@ export function TruthPage() {
   const completed = visibleCount >= truthLines.length;
 
   return (
-    <main className="screen">
-      <section className="shell page page-body stack truth-stage">
-        <p className="tiny">真相揭示</p>
+    <main className="screen final-transition-screen">
+      <section className="shell page page-body stack truth-stage truth-stage-entry">
         {truthLines.slice(0, visibleCount).map((line) => (
           <p key={line} className="truth-line">
             {line}

@@ -1,14 +1,12 @@
 import { defaultMockChat, shareLineFallbacks, translatorFallbacks } from "../../config/fallbacks";
 import { llmClient } from "../../services/api/llmClient";
-import type { FearType, LoveTranslationReport, TaPronoun } from "../../types/api";
+import type { LoveTranslationReport, TaPronoun } from "../../types/api";
 import type { ShareCardData } from "../../types/session";
 
-export const FEAR_TYPE_OPTIONS: FearType[] = ["害怕被抛下", "害怕被控制", "害怕说真话"];
 export const TA_PRONOUN_OPTIONS: TaPronoun[] = ["他", "她", "TA"];
 
 export interface TranslateConversationInput {
   chatText: string;
-  fearType: FearType | null;
   taPronoun: TaPronoun | null;
   endingType: string | null;
   pollutionCount: number;
@@ -33,38 +31,6 @@ type ReportBuildResult = {
 };
 
 const GENERIC_SHARE_LINE = "接口临时离线，但你已经比刚才更接近真话。";
-
-const fearProfiles: Record<
-  FearType,
-  {
-    possibleMeaning: string;
-    sharpTranslation: string;
-    betterExpression: (pronoun: string) => string;
-    actionAdvice: string;
-  }
-> = {
-  害怕被抛下: {
-    possibleMeaning: "我不是不在意，我是在担心一旦开口，连现在这点联系都会失去。",
-    sharpTranslation: "我先把委屈藏起来，是因为我怕自己一认真，你就会更快走远。",
-    betterExpression: (pronoun) =>
-      `我其实有点失落，也有点担心自己对${pronoun}来说没那么重要。你愿意跟我一起把这件事说清楚吗？`,
-    actionAdvice: "先说感受，再说需求。把害怕失去翻译成可回应的信息，对方才接得住。",
-  },
-  害怕被控制: {
-    possibleMeaning: "我不是没有想法，我是在防御那种一表达就被安排、被定义的感觉。",
-    sharpTranslation: "我退回去说都行，不是因为我轻松，而是因为我不想再被推进你设好的节奏里。",
-    betterExpression: () =>
-      "我需要一点空间确认自己的感受，但我也愿意继续聊。我们能不能先各自说清楚想法，再一起决定？",
-    actionAdvice: "别把边界说成冷淡。明确你的节奏和可接受范围，比突然抽离更不伤关系。",
-  },
-  害怕说真话: {
-    possibleMeaning: "我知道自己在意，但我还没准备好直接承认，所以先拿轻描淡写做缓冲。",
-    sharpTranslation: "嘴上说没事，只是为了避免让你看到我真正受伤的地方。",
-    betterExpression: () =>
-      "其实这件事让我有点难受，我刚刚没有直接说，是因为我怕气氛变僵。但我还是想让你知道真实感受。",
-    actionAdvice: "少一点测试，多一点直说。把真话说短、说具体，往往比憋到失真更安全。",
-  },
-};
 
 function normalizeText(value: string) {
   return value.replace(/\r\n/g, "\n").trim();
@@ -100,43 +66,31 @@ function sanitizeReport(report: LoveTranslationReport, original: string): LoveTr
   };
 }
 
-function getFearProfile(fearType: FearType | null) {
-  return fearProfiles[fearType ?? "害怕说真话"];
-}
-
-function buildGenericFallbackReport(
-  chatText: string,
-  fearType: FearType | null,
-  taPronoun: TaPronoun | null,
-) {
+function buildGenericFallbackReport(chatText: string, taPronoun: TaPronoun | null) {
   const original = extractOriginalSentence(chatText);
-  const profile = getFearProfile(fearType);
   const pronoun = taPronoun ?? "TA";
 
   return sanitizeReport(
     {
       original,
-      possibleMeaning: profile.possibleMeaning,
-      sharpTranslation: profile.sharpTranslation,
-      betterExpression: profile.betterExpression(pronoun),
-      actionAdvice: profile.actionAdvice,
+      possibleMeaning: "你不是没感觉，你只是先把真正的情绪压低，想等一个更安全的时机再说。",
+      sharpTranslation: "你把在意说轻，不是因为无所谓，而是因为怕认真以后更难收场。",
+      betterExpression: `其实这件事让我有点难受。我刚刚没有直接说，是因为我怕气氛变僵，但我还是想让${pronoun}知道我的真实感受。`,
+      actionAdvice: "先说感受，再说你希望对方怎么回应。比起让对方猜，短而直接的话更容易被接住。",
     },
     original,
   );
 }
 
-function findFallbackReport(chatText: string, fearType: FearType | null) {
+function findFallbackReport(chatText: string) {
   const original = extractOriginalSentence(chatText);
-  const targetFearTypes = fearType ? [fearType] : FEAR_TYPE_OPTIONS;
 
-  for (const currentFearType of targetFearTypes) {
-    const matchedEntry = translatorFallbacks[currentFearType].find((entry) =>
-      entry.match.some((pattern) => pattern.test(chatText)),
-    );
+  const matchedEntry = translatorFallbacks.find((entry) =>
+    entry.match.some((pattern) => pattern.test(chatText)),
+  );
 
-    if (matchedEntry) {
-      return sanitizeReport({ ...matchedEntry.report, original }, original);
-    }
+  if (matchedEntry) {
+    return sanitizeReport({ ...matchedEntry.report, original }, original);
   }
 
   return undefined;
@@ -144,14 +98,13 @@ function findFallbackReport(chatText: string, fearType: FearType | null) {
 
 function resolveLocalReport(
   chatText: string,
-  fearType: FearType | null,
   taPronoun: TaPronoun | null,
   notice?: string,
 ): ReportBuildResult {
-  const matchedFallback = findFallbackReport(chatText, fearType);
+  const matchedFallback = findFallbackReport(chatText);
 
   return {
-    report: matchedFallback ?? buildGenericFallbackReport(chatText, fearType, taPronoun),
+    report: matchedFallback ?? buildGenericFallbackReport(chatText, taPronoun),
     usedFallback: true,
     notice,
   };
@@ -159,19 +112,16 @@ function resolveLocalReport(
 
 async function resolveRemoteReport(
   chatText: string,
-  fearType: FearType | null,
   taPronoun: TaPronoun | null,
 ): Promise<ReportBuildResult> {
   try {
     const report = await llmClient.loveTranslate(chatText, {
-      fearType,
       taPronoun,
     });
 
     if (!report) {
       return resolveLocalReport(
         chatText,
-        fearType,
         taPronoun,
         "未检测到可用的大模型配置，已切换本地解读。",
       );
@@ -186,7 +136,6 @@ async function resolveRemoteReport(
 
     return resolveLocalReport(
       chatText,
-      fearType,
       taPronoun,
       `翻译大模型暂时不可用，已切换本地解读：${message}`,
     );
@@ -246,7 +195,6 @@ function buildShareCardData(
     endingType: input.endingType ?? "梦醒翻译家",
     hardestSentence: extractOriginalSentence(input.hardestSentence || report.original || input.chatText),
     shareLine,
-    fearType: input.fearType,
     pollutionCount: input.pollutionCount,
     deletedDraftCount: input.deletedDraftCount,
     loadCount: input.loadCount,
@@ -280,7 +228,7 @@ export async function translateConversation(
   const chatText = normalizeText(input.chatText) || defaultMockChat;
   const originalSentence = extractOriginalSentence(chatText);
   const [reportResult, shareLineResult] = await Promise.all([
-    resolveRemoteReport(chatText, input.fearType, input.taPronoun),
+    resolveRemoteReport(chatText, input.taPronoun),
     resolveShareLine(
       input.endingType,
       originalSentence,
