@@ -5,10 +5,28 @@ import type { FearType, TaPronoun } from "../../types/story";
 
 const fearOptions: Array<{ value: FearType; copy: string }> = [
   { value: "害怕被抛下", copy: "会下意识把委屈说轻，免得显得自己离不开谁。" },
-  { value: "害怕被控制", copy: "容易先说随便，真正的边界总是拖到最后才说。" }
+  { value: "害怕被控制", copy: "容易先说随便，真正的边界总是拖到最后才说。" },
+  { value: "害怕说真话", copy: "明明已经很在意了，开口时却总会把情绪说轻一点。" }
 ];
 
 const pronounOptions: TaPronoun[] = ["他", "她", "TA"];
+const dreamIntroLines = [
+  "今晚，你又梦见了她。",
+  "这一次，她没有再只是你喜欢的人，而是已经默认成为了你的恋人。",
+  "醒来以后，聊天框先亮了。她像什么都记得，连你没发出去的话也记得。"
+] as const;
+
+const guideItems = [
+  "像和一个真实喜欢的人聊天一样回复，不需要找标准答案。",
+  "你可以停顿、删改、重写，输入过程本身也会参与剧情。",
+  "有些安全表达会触发异常，比如“没事”“随便”“都行”这类话。",
+  "继续往下聊，留意聊天框、输入框、朋友圈和回退带来的变化。"
+] as const;
+
+const experienceNotes = [
+  "这是互动叙事游戏，不会读取你的真实聊天记录、定位或通讯录。",
+  "建议完整走完一轮体验，前半段先是恋爱游戏感，后半段才会慢慢失控。"
+] as const;
 
 export function StartPage() {
   const navigate = useNavigate();
@@ -28,36 +46,56 @@ export function StartPage() {
     <main className="screen home-page">
       <section className="shell page page-body stack home-shell">
         <div className="home-hero-stack">
-          <p className="tiny">互动叙事聊天实验 / CHAT LOG 01</p>
+          <p className="tiny">恋爱互动叙事 / DREAM LOG 01</p>
           <h1 className="hero-title">过拟合恋人</h1>
           <p className="hero-subtitle">
-            像微信一样熟悉的聊天界面里，藏着一段会自己增殖的关系记录。
-            你删掉的话、没发出的草稿、说轻了的情绪，都会在后半段重新回来找你。
+            某天夜里，你梦见一直喜欢的人突然成了你的恋人。醒来以后，她真的出现在聊天框里。
+            这段关系会记住你删掉的话、停住的几秒，和那些没有发出去的版本。
           </p>
           <div className="home-signal-strip" aria-label="异常提示">
-            <span className="home-signal-chip">聊天记录会失真</span>
-            <span className="home-signal-chip">草稿会被记住</span>
+            <span className="home-signal-chip">先像恋爱游戏一样聊天</span>
+            <span className="home-signal-chip">删改和停顿也算剧情</span>
             <span className="home-signal-chip danger">有些句子不会自己消失</span>
           </div>
         </div>
 
-        <div className="home-panel-grid">
-          <div className="card stack home-info-card">
-            <strong>你会经历什么</strong>
-            <span className="meta-copy">
-              从普通恋爱聊天开始，逐步进入关键词污染、草稿监听、读档失控、空间异常和真相反噬。
-            </span>
-          </div>
+        <div className="home-intro-layout">
+          <section className="card stack home-dream-card">
+            <div className="home-section-heading">
+              <strong>序章</strong>
+              <span>先看懂这场梦，再进去聊天。</span>
+            </div>
+            <div className="home-dream-time">02:17 / 对方上线了</div>
+            <div className="home-dream-lines">
+              {dreamIntroLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          </section>
 
-          <div className="card stack home-info-card">
-            <strong>体验边界</strong>
-            <span className="meta-copy">
-              这是明确标注的互动叙事游戏。不会调用真实定位、通讯录或后台监听，但会模拟它们带来的不安感。
-            </span>
-          </div>
+          <section className="card stack home-guide-card">
+            <div className="home-section-heading">
+              <strong>进入前你需要知道</strong>
+              <span>这不是解谜题，而是一段会记住你的聊天。</span>
+            </div>
+            <ul className="home-guide-list">
+              {guideItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <ul className="home-guide-list subtle">
+              {experienceNotes.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
         </div>
 
-        <div className="stack">
+        <div className="stack home-setup-block">
+          <div className="home-section-heading">
+            <strong>开始前设置</strong>
+            <span>选完这两个维度，故事会按你的关系习惯开始理解你。</span>
+          </div>
           <strong>你更怕哪一种关系失控？</strong>
           <div className="choice-grid">
             {fearOptions.map((option) => (
@@ -90,7 +128,7 @@ export function StartPage() {
         </div>
 
         <div className="card home-effect-card">
-          <strong>当前心理底色</strong>
+          <strong>这轮故事会从这里开始理解你</strong>
           <p className="meta-copy">{selectedCopy}</p>
         </div>
 
@@ -106,7 +144,7 @@ export function StartPage() {
               navigate("/chat");
             }}
           >
-            {isReplying ? "进入中..." : "开始聊天"}
+            {isReplying ? "进入中..." : "进入这场梦"}
           </button>
           {hasFinishedGame ? (
             <button className="button-secondary" onClick={() => navigate("/translator")}>

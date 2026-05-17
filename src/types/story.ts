@@ -21,6 +21,7 @@ export type TriggerReason = "count" | "keyword" | "timed" | "scripted";
 
 export type StoryEvent =
   | "draft_exposed"
+  | "hesitation_noticed"
   | "load_restored"
   | "load_warning"
   | "load_failed"

@@ -94,7 +94,7 @@ export function SpacePage() {
   }, [navigate, session.stage]);
 
   const posts = getSpacePosts(session.spaceVisitCount);
-  const zoneTitle = session.spaceVisitCount >= 2 ? "用户的空间" : "用户的空间：宝宝的空间";
+  const zoneTitle = session.spaceVisitCount >= 2 ? "用户的朋友圈" : "用户的朋友圈：宝宝的朋友圈";
 
   return (
     <main className="space-feed-screen">
@@ -103,9 +103,9 @@ export function SpacePage() {
           <div className="space-cover-image" />
           <div className="space-cover-meta">
             <div>
-              <p className="space-cover-eyebrow">QQ 空间 / 亮白版动态流</p>
+              <p className="space-cover-eyebrow">微信朋友圈 / 亮白版动态流</p>
               <h1 className="space-cover-title">{zoneTitle}</h1>
-              <p className="space-cover-subtitle">第 {session.spaceVisitCount} 次进入这里以后，动态开始越来越像你自己的心事。</p>
+              <p className="space-cover-subtitle">第 {session.spaceVisitCount} 次进入这里以后，朋友圈开始越来越像你自己的心事。</p>
             </div>
             <div className="space-profile-chip">
               <span className="space-profile-name">{session.spaceVisitCount >= 2 ? "用户" : "宝宝"}</span>
@@ -185,7 +185,7 @@ export function SpacePage() {
                 </div>
 
                 <footer className="space-feed-card-footer">
-                  <span>只有你看得到这组动态</span>
+                  <span>只有你看得到这组朋友圈动态</span>
                   <button type="button">···</button>
                 </footer>
               </article>
