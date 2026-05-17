@@ -1,6 +1,7 @@
 import { buildTaReplyPrompt } from "../../config/prompts";
 import type {
   LoveTranslateRequest,
+  RelationshipAnalysisReport,
   LoveTranslationReport,
   PollutionRewriteRequest,
   PollutionRewriteResponse,
@@ -193,6 +194,30 @@ function buildLoveTranslateMessages(
       "4. 给出更好的表达方式和一条具体建议。",
       `聊天内容：\n${chatText}`
     ].join("\n")
+  };
+}
+
+function buildRelationshipAnalyzeMessages(chatText: string): { system: string; user: string } {
+  return {
+    system: [
+      "你是一个聊天关系分析器。",
+      "你的任务是根据用户提供的一段历史聊天记录，输出一份结构化的关系分析报告。",
+      "你不是单句回复助手，不要生成多条候选回复，不要把重点放在改写一句话。",
+      "你必须从整段聊天里总结双方风格、关系状态、互动模式、关键转折和沟通方向。",
+      "不能做心理诊断，不能断言对方真实想法，只能根据聊天模式推断。",
+      "输出必须是 JSON，不要代码块，不要额外说明。",
+      'JSON 格式固定为 {"summary":"","relationshipState":"","selfProfile":{"summary":"","traits":[]},"otherProfile":{"summary":"","traits":[]},"interactionPattern":[],"keyMoments":[{"title":"","quote":"","insight":""}],"mainIssues":[],"communicationAdvice":{"direction":"","doMore":[],"avoid":[],"nextStep":""}}。',
+    ].join("\n"),
+    user: [
+      "请分析下面这段聊天记录。",
+      "要求：",
+      "1. 重点是分析整段关系，不是改写某一句话。",
+      "2. 每一部分都要可读、具体，不要空泛。",
+      "3. keyMoments 最多 3 条，每条都要引用具体片段。",
+      "4. traits、interactionPattern、mainIssues、doMore、avoid 最多各 3 条。",
+      "5. communicationAdvice.direction 和 nextStep 要简洁明确。",
+      `聊天记录：\n${chatText}`,
+    ].join("\n"),
   };
 }
 
@@ -604,6 +629,30 @@ async function loveTranslate(
   return extractJson<LoveTranslationReport>(rawContent);
 }
 
+async function relationshipAnalyze(chatText: string): Promise<RelationshipAnalysisReport | null> {
+  if (!isEnabled()) {
+    return null;
+  }
+
+  const prompt = buildRelationshipAnalyzeMessages(chatText);
+  const rawContent = await requestChatCompletion([
+    {
+      role: "system",
+      content: prompt.system,
+    },
+    {
+      role: "user",
+      content: prompt.user,
+    },
+  ], {
+    temperature: 0.45,
+    maxTokens: 800,
+    preferJsonMode: true,
+  });
+
+  return extractJson<RelationshipAnalysisReport>(rawContent);
+}
+
 async function shareLine(payload: ShareLineRequest): Promise<ShareLineResponse | null> {
   if (!isEnabled()) {
     return null;
@@ -636,5 +685,6 @@ export const llmClient = {
   taReply: generateTaReply,
   rewritePollution,
   loveTranslate,
+  relationshipAnalyze,
   shareLine,
 };

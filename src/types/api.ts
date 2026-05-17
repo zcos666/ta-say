@@ -14,6 +14,35 @@ export interface LoveTranslationReport {
   actionAdvice: string;
 }
 
+export interface RelationshipInsightBlock {
+  summary: string;
+  traits: string[];
+}
+
+export interface RelationshipKeyMoment {
+  title: string;
+  quote: string;
+  insight: string;
+}
+
+export interface RelationshipAdviceBlock {
+  direction: string;
+  doMore: string[];
+  avoid: string[];
+  nextStep: string;
+}
+
+export interface RelationshipAnalysisReport {
+  summary: string;
+  relationshipState: string;
+  selfProfile: RelationshipInsightBlock;
+  otherProfile: RelationshipInsightBlock;
+  interactionPattern: string[];
+  keyMoments: RelationshipKeyMoment[];
+  mainIssues: string[];
+  communicationAdvice: RelationshipAdviceBlock;
+}
+
 export interface TaReplyRequest {
   stage: string;
   originalInput?: string;
