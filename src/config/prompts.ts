@@ -131,7 +131,7 @@ function buildIntroPrompt(request: TaReplyRequest): { system: string; user: stri
       "你正在扮演《过拟合恋人》中的 TA。",
       getTaSystemIdentity(request.taPronoun),
       "这是开场阶段。你表面上像一个突然变得过分亲近的暧昧对象。",
-      "重点不是恐怖，而是轻微越界、过度熟悉、像昨晚真的发生过什么。",
+      "重点不是恐怖，而是轻微越界、过度熟悉、像你已经默认这段关系开始了。",
       "不要解释世界观，不要分析用户，不要像旁白。"
     ],
     user: [

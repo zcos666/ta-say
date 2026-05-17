@@ -27,6 +27,8 @@ export interface ShareCardData {
   deletedDraftCount: number;
   loadCount: number;
   aiTranslation: string;
+  dreamReferenceText?: string;
+  translatorContextText?: string;
 }
 export interface SessionState {
   taPronoun: TaPronoun | null;

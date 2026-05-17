@@ -13,11 +13,11 @@ const styles = {
     maxWidth: "540px",
     overflow: "hidden",
     borderRadius: "32px",
-    border: "1px solid rgba(196, 184, 188, 0.86)",
+    border: "1px solid rgba(146, 118, 127, 0.5)",
     padding: "30px",
     background:
-      "radial-gradient(circle at top right, rgba(107,44,55,0.09), transparent 24%), linear-gradient(180deg, rgba(255,255,255,0.995) 0%, rgba(245,243,244,0.99) 100%)",
-    boxShadow: "0 24px 56px rgba(28, 24, 26, 0.16)",
+      "radial-gradient(circle at 12% 0%, rgba(107,44,55,0.14), transparent 26%), radial-gradient(circle at 100% 100%, rgba(18,14,17,0.1), transparent 34%), linear-gradient(180deg, rgba(255,255,255,0.995) 0%, rgba(241,236,239,0.99) 100%)",
+    boxShadow: "0 28px 64px rgba(28, 24, 26, 0.22)",
     color: "#1f1f1f",
     fontFamily:
       '"Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
@@ -36,6 +36,29 @@ const styles = {
     width: "92px",
     height: "1px",
     background: "linear-gradient(90deg, rgba(107,44,55,0) 0%, rgba(107,44,55,0.46) 100%)",
+  } satisfies CSSProperties,
+  scanLayer: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    opacity: 0.26,
+    background:
+      "repeating-linear-gradient(180deg, rgba(255,255,255,0) 0 10px, rgba(107,44,55,0.04) 10px 11px, rgba(255,255,255,0) 11px 22px)",
+    mixBlendMode: "multiply",
+  } satisfies CSSProperties,
+  seal: {
+    position: "absolute",
+    top: "84px",
+    right: "-36px",
+    padding: "9px 38px",
+    transform: "rotate(16deg)",
+    borderTop: "1px solid rgba(107, 44, 55, 0.22)",
+    borderBottom: "1px solid rgba(107, 44, 55, 0.22)",
+    background: "rgba(107, 44, 55, 0.06)",
+    color: "rgba(107, 44, 55, 0.72)",
+    fontSize: "11px",
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
   } satisfies CSSProperties,
   topRow: {
     display: "flex",
@@ -106,9 +129,10 @@ const styles = {
     gap: "12px",
     padding: "20px",
     borderRadius: "24px",
-    border: "1px solid rgba(222, 222, 223, 0.96)",
-    background: "rgba(252, 252, 252, 0.8)",
-    boxShadow: "0 10px 24px rgba(33, 28, 31, 0.04)",
+    border: "1px solid rgba(203, 194, 198, 0.72)",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(249,246,247,0.8) 100%)",
+    boxShadow: "0 12px 28px rgba(33, 28, 31, 0.06)",
   } satisfies CSSProperties,
   sectionLabel: {
     margin: 0,
@@ -156,12 +180,88 @@ const styles = {
     margin: 0,
     fontSize: "20px",
     lineHeight: 1.6,
+    color: "#fff6f8",
+  } satisfies CSSProperties,
+  contextBlock: {
+    display: "grid",
+    gap: "8px",
+    padding: "14px 16px",
+    borderRadius: "18px",
+    background: "rgba(255, 255, 255, 0.78)",
+    border: "1px solid rgba(229, 228, 230, 0.96)",
+  } satisfies CSSProperties,
+  evidenceStack: {
+    display: "grid",
+    gap: "12px",
+  } satisfies CSSProperties,
+  contextMetaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    flexWrap: "wrap",
+  } satisfies CSSProperties,
+  dreamContextBlock: {
+    background:
+      "linear-gradient(180deg, rgba(255,248,250,0.96) 0%, rgba(249,240,243,0.92) 100%)",
+    border: "1px solid rgba(107, 44, 55, 0.16)",
+    boxShadow: "0 12px 28px rgba(107, 44, 55, 0.08)",
+  } satisfies CSSProperties,
+  translatorContextBlock: {
+    background:
+      "linear-gradient(180deg, rgba(248,249,251,0.96) 0%, rgba(241,242,245,0.92) 100%)",
+    border: "1px solid rgba(62, 66, 76, 0.12)",
+  } satisfies CSSProperties,
+  memoryChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: "24px",
+    padding: "0 10px",
+    borderRadius: "999px",
+    background: "rgba(107, 44, 55, 0.1)",
+    color: "#6b2c37",
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+  } satisfies CSSProperties,
+  translatorChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: "24px",
+    padding: "0 10px",
+    borderRadius: "999px",
+    background: "rgba(33, 37, 45, 0.08)",
+    color: "#424852",
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+  } satisfies CSSProperties,
+  contextLabel: {
+    margin: 0,
+    color: "#857d80",
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  } satisfies CSSProperties,
+  contextCopy: {
+    margin: 0,
+    fontSize: "14px",
+    lineHeight: 1.7,
+    color: "#2b2527",
+    whiteSpace: "pre-wrap",
+  } satisfies CSSProperties,
+  translationPanel: {
+    display: "grid",
+    gap: "10px",
+    padding: "16px 18px",
+    borderRadius: "20px",
+    background:
+      "linear-gradient(180deg, rgba(31,24,27,0.98) 0%, rgba(48,34,39,0.96) 100%)",
+    boxShadow: "0 18px 36px rgba(31, 24, 27, 0.18)",
   } satisfies CSSProperties,
   translation: {
     margin: 0,
     fontSize: "22px",
     lineHeight: 1.6,
-    color: "#5a2b35",
+    color: "#f6dfe6",
   } satisfies CSSProperties,
   insightGrid: {
     display: "grid",
@@ -171,6 +271,38 @@ const styles = {
     display: "grid",
     gap: "16px",
     justifyItems: "center",
+  } satisfies CSSProperties,
+  radarSvgWrap: {
+    position: "relative",
+    width: "168px",
+    height: "168px",
+  } satisfies CSSProperties,
+  axisLabel: {
+    position: "absolute",
+    fontSize: "12px",
+    lineHeight: 1.4,
+    color: "#857d80",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  axisTop: {
+    top: "-18px",
+    left: "50%",
+    transform: "translateX(-50%)",
+  } satisfies CSSProperties,
+  axisRight: {
+    top: "50%",
+    right: "-40px",
+    transform: "translateY(-50%)",
+  } satisfies CSSProperties,
+  axisBottom: {
+    bottom: "-18px",
+    left: "50%",
+    transform: "translateX(-50%)",
+  } satisfies CSSProperties,
+  axisLeft: {
+    top: "50%",
+    left: "-40px",
+    transform: "translateY(-50%)",
   } satisfies CSSProperties,
   radarLegend: {
     width: "100%",
@@ -275,44 +407,52 @@ function buildGridPath(level: number) {
 
 function RadarChart({ data }: { data: ShareCardViewModel["profileAxes"] }) {
   const polygonPoints = buildRadarPoints(data.map((axis) => axis.value));
+  const axisPositions = [styles.axisTop, styles.axisRight, styles.axisBottom, styles.axisLeft];
 
   return (
-    <svg viewBox="0 0 168 168" width="168" height="168" aria-label="关系维度图谱">
-      {[0.35, 0.6, 0.85].map((level) => (
-        <path
-          key={level}
-          d={buildGridPath(level)}
-          fill="none"
-          stroke="rgba(103, 92, 96, 0.16)"
-          strokeWidth="1"
-        />
-      ))}
-      {[0, 90, 180, 270].map((angle) => {
-        const point = polarToPoint(84, 84, 58, angle);
-        return (
-          <line
-            key={angle}
-            x1="84"
-            y1="84"
-            x2={point.x}
-            y2={point.y}
+    <div style={styles.radarSvgWrap}>
+      <svg viewBox="0 0 168 168" width="168" height="168" aria-label="关系维度图谱">
+        {[0.35, 0.6, 0.85].map((level) => (
+          <path
+            key={level}
+            d={buildGridPath(level)}
+            fill="none"
             stroke="rgba(103, 92, 96, 0.16)"
             strokeWidth="1"
           />
-        );
-      })}
-      <polygon
-        points={polygonPoints}
-        fill="rgba(107, 44, 55, 0.12)"
-        stroke="#6b2c37"
-        strokeWidth="2"
-      />
-      {data.map((axis, index) => {
-        const point = polarToPoint(84, 84, (58 * axis.value) / 100, index * 90);
-        return <circle key={axis.label} cx={point.x} cy={point.y} r="3.5" fill="#6b2c37" />;
-      })}
-      <circle cx="84" cy="84" r="4" fill="#1f1f1f" />
-    </svg>
+        ))}
+        {[0, 90, 180, 270].map((angle) => {
+          const point = polarToPoint(84, 84, 58, angle);
+          return (
+            <line
+              key={angle}
+              x1="84"
+              y1="84"
+              x2={point.x}
+              y2={point.y}
+              stroke="rgba(103, 92, 96, 0.16)"
+              strokeWidth="1"
+            />
+          );
+        })}
+        <polygon
+          points={polygonPoints}
+          fill="rgba(107, 44, 55, 0.12)"
+          stroke="#6b2c37"
+          strokeWidth="2"
+        />
+        {data.map((axis, index) => {
+          const point = polarToPoint(84, 84, (58 * axis.value) / 100, index * 90);
+          return <circle key={axis.label} cx={point.x} cy={point.y} r="3.5" fill="#6b2c37" />;
+        })}
+        <circle cx="84" cy="84" r="4" fill="#1f1f1f" />
+      </svg>
+      {data.map((axis, index) => (
+        <span key={`${axis.label}-label`} style={{ ...styles.axisLabel, ...axisPositions[index] }}>
+          {axis.label}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -320,6 +460,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(({ data }, r
   <div ref={ref} style={styles.shell}>
     <div style={styles.glow} />
     <div style={styles.noiseLine} />
+    <div style={styles.scanLayer} />
+    <div style={styles.seal}>ABNORMAL ARCHIVE</div>
     <div style={styles.topRow}>
       <div style={styles.brand}>
         <span style={styles.kicker}>RELATIONSHIP ILLUSION REPORT</span>
@@ -361,9 +503,36 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(({ data }, r
     </section>
 
     <section style={{ ...styles.section, marginBottom: "14px" }}>
-      <p style={styles.sectionLabel}>这句其实在说</p>
-      <p style={styles.sentence}>{data.hardestSentence}</p>
-      <p style={styles.translation}>{data.translatedHighlight}</p>
+      <p style={styles.sectionLabel}>留下来的证据</p>
+      <div style={styles.evidenceStack}>
+        <div style={{ ...styles.contextBlock, ...styles.dreamContextBlock }}>
+          <div style={styles.contextMetaRow}>
+            <p style={styles.contextLabel}>梦里主线聊天摘录</p>
+            <span style={styles.memoryChip}>DREAM LOG</span>
+          </div>
+          <p style={styles.contextCopy}>{data.dreamConversationPreview}</p>
+        </div>
+        <div style={{ ...styles.contextBlock, ...styles.dreamContextBlock }}>
+          <div style={styles.contextMetaRow}>
+            <p style={styles.contextLabel}>最后卡住你的那一句</p>
+            <span style={styles.memoryChip}>LOCKED LINE</span>
+          </div>
+          <p style={styles.contextCopy}>{data.dreamReferenceText}</p>
+        </div>
+        {data.translatorContextText ? (
+          <div style={{ ...styles.contextBlock, ...styles.translatorContextBlock }}>
+            <div style={styles.contextMetaRow}>
+              <p style={styles.contextLabel}>后来补进来的聊天</p>
+              <span style={styles.translatorChip}>LATE EVIDENCE</span>
+            </div>
+            <p style={styles.contextCopy}>{data.translatorContextText}</p>
+          </div>
+        ) : null}
+      </div>
+      <div style={styles.translationPanel}>
+        <p style={styles.sentence}>{data.hardestSentence}</p>
+        <p style={styles.translation}>{data.translatedHighlight}</p>
+      </div>
     </section>
 
     <section style={styles.section}>

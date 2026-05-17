@@ -191,7 +191,6 @@ function buildLoveTranslateMessages(
       "2. 不要做心理诊断。",
       "3. 不要断言对方一定怎么想，只能说可能。",
       "4. 给出更好的表达方式和一条具体建议。",
-      `对方代称：${context?.taPronoun ?? "TA"}`,
       `聊天内容：\n${chatText}`
     ].join("\n")
   };

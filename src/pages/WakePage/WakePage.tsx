@@ -21,11 +21,8 @@ export function WakePage() {
         ))}
         <div className="spacer" />
         <div className="stack">
-          <button className="button-primary" onClick={() => navigate("/translator")}>
-            查看恋爱翻译官入口
-          </button>
-          <button className="button-secondary" onClick={() => navigate("/")}>
-            返回开始页
+          <button className="button-secondary" onClick={() => navigate("/translator")}>
+            继续翻译没说出口的话
           </button>
         </div>
       </section>
