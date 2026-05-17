@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store/useAppStore";
 import TranslationReportCard from "../../components/share/TranslationReportCard";
 import {
+  parseConversationText,
+  SAMPLE_TRANSLATOR_CONVERSATION,
   translateConversation,
   type TranslateConversationResult,
 } from "../../features/translator/translatorService";
@@ -295,6 +297,60 @@ const pageStyles: Record<string, CSSProperties> = {
     color: "#6a545b",
     fontSize: 12,
   },
+  inputStats: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  inputStat: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 30,
+    padding: "0 12px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.94)",
+    border: "1px solid rgba(171, 148, 155, 0.18)",
+    color: "#5d585c",
+    fontSize: 12,
+  },
+  qualityCard: {
+    display: "grid",
+    gap: 10,
+    padding: "12px 14px",
+    borderRadius: 16,
+    background: "rgba(247, 242, 244, 0.72)",
+    border: "1px solid rgba(171, 148, 155, 0.16)",
+  },
+  qualityTitle: {
+    margin: 0,
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#4f4549",
+  },
+  qualityList: {
+    margin: 0,
+    paddingLeft: 18,
+    display: "grid",
+    gap: 6,
+    color: "#5d585c",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+  previewBox: {
+    display: "grid",
+    gap: 8,
+    padding: "12px 14px",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.9)",
+    border: "1px solid rgba(171, 148, 155, 0.16)",
+  },
+  previewLine: {
+    margin: 0,
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: "#5d585c",
+    whiteSpace: "pre-wrap",
+  },
 } as const;
 
 export default function TranslatorPage() {
@@ -306,21 +362,29 @@ export default function TranslatorPage() {
   const deletedDraftCount = useAppStore((state) => state.session.deletedDraftCount);
   const loadCount = useAppStore((state) => state.session.loadCount);
   const hasFinishedGame = useAppStore((state) => state.session.hasFinishedGame);
-  const translatorReport = useAppStore((state) => state.session.translatorReport);
   const resetForReplay = useAppStore((state) => state.resetForReplay);
   const selectSetup = useAppStore((state) => state.selectSetup);
   const saveTranslatorReport = useAppStore((state) => state.saveTranslatorReport);
   const saveShareCardData = useAppStore((state) => state.saveShareCardData);
 
-  const [targetText, setTargetText] = useState(() => hardestSentence?.trim() || "");
-  const [contextText, setContextText] = useState("");
+  const [conversationText, setConversationText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [latestResult, setLatestResult] = useState<TranslateConversationResult | null>(null);
 
-  const activeReport = latestResult?.report ?? translatorReport;
+  const activeReport = latestResult?.report ?? null;
   const statusNotices = latestResult?.notices ?? [];
-  const resultWindowSentence = targetText.trim() || hardestSentence?.trim() || "你这一轮留下了一些没说完的话。";
+  const liveInputSummary = useMemo(() => parseConversationText(conversationText), [conversationText]);
+  const activeInputSummary = latestResult?.inputSummary ?? liveInputSummary;
+  const previewTurns = activeInputSummary.turns.slice(0, 4);
+  const inputChecklist = useMemo(() => {
+    const items: string[] = [];
+    items.push(activeInputSummary.mergedTurnCount >= 4 ? "轮次足够，适合做关系分析。" : "建议补到至少 4 轮以上关键对话。");
+    items.push(activeInputSummary.selfCount > 0 && activeInputSummary.otherCount > 0 ? "双方都已识别，互动节奏比较清楚。" : "目前双方角色不够清楚，建议补上 `我:` 和 `TA:`。");
+    items.push(activeInputSummary.unknownCount === 0 ? "说话人标注比较完整。" : `还有 ${activeInputSummary.unknownCount} 句未识别说话人。`);
+    return items;
+  }, [activeInputSummary]);
+  const resultWindowSentence = hardestSentence?.trim() || "你这一轮留下了一些没说完的话。";
   const resultStats = [
     { label: "反义污染", value: pollutionCount },
     { label: "删除草稿", value: deletedDraftCount },
@@ -329,17 +393,17 @@ export default function TranslatorPage() {
 
   const summaryText = useMemo(() => {
     if (!activeReport) {
-      return "先填你最想翻译的那一句；如果需要，再补几句上下文。";
+      return "先粘贴一段聊天记录。系统会优先分析你们整体怎么聊天，而不是只拆一句话。";
     }
 
-    return "右侧会按当前输入，把这句话拆得更清楚。";
+    return "右侧会根据当前输入，把这段关系拆成一份结构化报告。";
   }, [activeReport]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!targetText.trim()) {
-      setErrorMessage("请先填入你想翻译的那一句。");
+    if (!conversationText.trim()) {
+      setErrorMessage("请先填入聊天记录。");
       return;
     }
 
@@ -348,8 +412,7 @@ export default function TranslatorPage() {
 
     try {
       const result = await translateConversation({
-        targetText,
-        contextText,
+        conversationText,
         includeShareArtifacts: false,
         endingType,
         pollutionCount,
@@ -359,7 +422,7 @@ export default function TranslatorPage() {
         hasFinishedGame,
       });
 
-      saveTranslatorReport(result.report);
+      saveTranslatorReport(result.legacyReport);
       saveShareCardData(result.shareCardData);
       setLatestResult(result);
     } catch (error) {
@@ -371,8 +434,7 @@ export default function TranslatorPage() {
   }
 
   function handleReset() {
-    setTargetText(hardestSentence?.trim() || "");
-    setContextText("");
+    setConversationText("");
     setLatestResult(null);
     setErrorMessage("");
   }
@@ -383,12 +445,12 @@ export default function TranslatorPage() {
         <section style={pageStyles.hero}>
           <div style={pageStyles.heroTopLine}>
             <p style={pageStyles.eyebrow}>Translator Console</p>
-            <span style={pageStyles.heroBadge}>文本翻译</span>
+            <span style={pageStyles.heroBadge}>关系分析</span>
             <span style={pageStyles.monitorPill}>异常档案同步中</span>
           </div>
-          <h1 style={pageStyles.title}>把没说出口的话，翻译成人话</h1>
+          <h1 style={pageStyles.title}>把一段聊天，翻译成一份关系报告</h1>
           <p style={pageStyles.description}>
-            先填一句你最想拆开的表达。如果只看这一句不够，再补几句聊天上下文，系统会一起帮你看。
+            这里不再只翻一句话。你可以直接贴一段聊天记录，系统会尝试从整体节奏、表达模式和关键转折里，整理你们现在的关系状态。
           </p>
           <p style={pageStyles.warningStrip}>它会把梦里留下的对话和你后来补进去的聊天一起归档，所以有些东西会比你自己记得更完整。</p>
           <div style={pageStyles.buttonRow}>
@@ -412,40 +474,55 @@ export default function TranslatorPage() {
         <section style={pageStyles.grid}>
           <form style={pageStyles.panel} onSubmit={handleSubmit}>
             <div>
-              <h2 style={pageStyles.panelTitle}>翻译输入区</h2>
-              <p style={pageStyles.panelIntro}>把那句最让你卡住的话贴进来，再按需要补上下文。</p>
+              <h2 style={pageStyles.panelTitle}>聊天记录输入区</h2>
+              <p style={pageStyles.panelIntro}>直接粘贴一段聊天记录，重点是让系统看见你们怎么互动，而不是单独拆一句话。</p>
             </div>
 
             <div style={pageStyles.field}>
-              <label htmlFor="translator-target" style={pageStyles.label}>
-                你想翻译的那一句
+              <label htmlFor="translator-conversation" style={pageStyles.label}>
+                你们的聊天记录
               </label>
-              <p style={pageStyles.hint}>先把真正卡住你的那句话单独贴进来。</p>
-              <textarea
-                id="translator-target"
-                value={targetText}
-                onChange={(event) => setTargetText(event.target.value)}
-                placeholder="比如：没事，你忙吧。"
-                style={pageStyles.textarea}
-              />
-            </div>
-
-            <div style={pageStyles.field}>
-              <label htmlFor="translator-context" style={pageStyles.label}>
-                聊天上下文
-              </label>
-              <p style={pageStyles.hint}>如果只看单句不够，再补几句上下文。推荐直接用 `TA:` 和 `我:` 区分说话的人。</p>
+              <p style={pageStyles.hint}>推荐直接用 `TA:` 和 `我:` 区分说话的人，尽量多给几轮关键聊天。</p>
               <div style={pageStyles.speakerGuide} aria-label="输入格式示例">
                 <span style={pageStyles.speakerChip}>TA: 你先去，我马上出来</span>
                 <span style={pageStyles.speakerChip}>我: 你呢</span>
+                <span style={pageStyles.speakerChip}>我: 没事，你先忙吧</span>
               </div>
               <textarea
-                id="translator-context"
-                value={contextText}
-                onChange={(event) => setContextText(event.target.value)}
-                placeholder={"比如：\nTA: 你先去，我马上出来，刚上了个厕所\n我: 你呢"}
+                id="translator-conversation"
+                value={conversationText}
+                onChange={(event) => setConversationText(event.target.value)}
+                placeholder={"比如：\nTA: 你先去，我马上出来，刚上了个厕所\n我: 你呢\nTA: 马上\n我: 没事，你先忙吧"}
                 style={pageStyles.textarea}
               />
+              <div style={pageStyles.inputStats}>
+                <span style={pageStyles.inputStat}>原始行数 {activeInputSummary.rawLineCount}</span>
+                <span style={pageStyles.inputStat}>整理后轮次 {activeInputSummary.mergedTurnCount}</span>
+                <span style={pageStyles.inputStat}>我 {activeInputSummary.selfCount}</span>
+                <span style={pageStyles.inputStat}>TA {activeInputSummary.otherCount}</span>
+                <span style={pageStyles.inputStat}>未识别 {activeInputSummary.unknownCount}</span>
+              </div>
+              <div style={pageStyles.qualityCard}>
+                <p style={pageStyles.qualityTitle}>输入质量反馈</p>
+                <ul style={pageStyles.qualityList}>
+                  {inputChecklist.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              {previewTurns.length > 0 ? (
+                <div style={pageStyles.previewBox}>
+                  <p style={pageStyles.hint}>系统会先按下面这个整理后的版本来分析：</p>
+                  {previewTurns.map((turn, index) => (
+                    <p key={`${turn.speaker}-${index}-${turn.text}`} style={pageStyles.previewLine}>
+                      {turn.speaker === "self" ? "我" : turn.speaker === "other" ? "TA" : "未标注"}: {turn.text}
+                    </p>
+                  ))}
+                  {activeInputSummary.turns.length > previewTurns.length ? (
+                    <p style={pageStyles.previewLine}>...</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div style={pageStyles.status}>{summaryText}</div>
@@ -462,7 +539,18 @@ export default function TranslatorPage() {
 
             <div style={pageStyles.buttonRow}>
               <button type="submit" style={pageStyles.primaryButton} disabled={submitting}>
-                {submitting ? "翻译中..." : "开始翻译"}
+                {submitting ? "分析中..." : "开始分析"}
+              </button>
+              <button
+                type="button"
+                style={pageStyles.secondaryButton}
+                onClick={() => {
+                  setConversationText(SAMPLE_TRANSLATOR_CONVERSATION);
+                  setLatestResult(null);
+                  setErrorMessage("");
+                }}
+              >
+                填入示例
               </button>
               <button type="button" style={pageStyles.secondaryButton} onClick={handleReset}>
                 重置输入
@@ -493,17 +581,16 @@ export default function TranslatorPage() {
             ) : null}
             <TranslationReportCard
               report={activeReport}
-              targetText={targetText}
-              contextText={contextText}
+              conversationText={latestResult?.inputSummary.normalizedConversation ?? conversationText}
               usedFallback={latestResult?.usedFallback ?? false}
               notices={statusNotices}
             />
             <section style={pageStyles.helperCard}>
               <h3 style={pageStyles.helperTitle}>它最容易从哪里看穿你</h3>
               <p style={pageStyles.helperBody}>
-                1. 先把你最想翻译的那一句单独贴进左边第一栏。
-                {"\n"}2. 如果这句话离开上下文就看不懂，再补几句聊天记录。
-                {"\n"}3. 想更清楚地区分说话的人，就在每句前面写 `TA:` 或 `我:`。
+                1. 不要只贴一句，尽量贴 4 到 10 轮关键聊天。
+                {"\n"}2. 每句前面写 `TA:` 或 `我:`，系统更容易读懂互动节奏。
+                {"\n"}3. 优先贴那些让你反复想、反复卡住的片段。
               </p>
             </section>
           </aside>

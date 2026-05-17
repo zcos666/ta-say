@@ -1,10 +1,9 @@
 import type { CSSProperties } from "react";
-import type { LoveTranslationReport } from "../../types/api";
+import type { RelationshipAnalysisReport } from "../../types/api";
 
 export interface TranslationReportCardProps {
-  report?: LoveTranslationReport;
-  targetText?: string;
-  contextText?: string;
+  report?: RelationshipAnalysisReport;
+  conversationText?: string;
   usedFallback?: boolean;
   notices?: string[];
 }
@@ -126,19 +125,57 @@ const cardStyles: Record<string, CSSProperties> = {
     background: "linear-gradient(180deg, rgba(244,247,244,0.98) 0%, rgba(246,241,243,0.98) 100%)",
     border: "1px solid rgba(107, 44, 55, 0.12)",
   },
+  list: {
+    margin: 0,
+    paddingLeft: 18,
+    display: "grid",
+    gap: 8,
+    color: "#1f1f1f",
+    fontSize: 14,
+    lineHeight: 1.7,
+  },
+  keyMomentCard: {
+    display: "grid",
+    gap: 8,
+    padding: "clamp(14px, 3vw, 16px)",
+    borderRadius: "clamp(16px, 3vw, 18px)",
+    background: "rgba(255,255,255,0.98)",
+    border: "1px solid rgba(107, 44, 55, 0.12)",
+  },
+  sectionTitle: {
+    margin: 0,
+    fontSize: 18,
+    lineHeight: 1.4,
+    color: "#2c2326",
+  },
+  statsRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  statChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 30,
+    padding: "0 12px",
+    borderRadius: 999,
+    background: "rgba(247, 242, 244, 0.96)",
+    border: "1px solid rgba(107, 44, 55, 0.1)",
+    color: "#6a545b",
+    fontSize: 12,
+  },
 };
 
 export function TranslationReportCard({
   report,
-  targetText,
-  contextText,
+  conversationText,
   usedFallback = false,
   notices = [],
 }: TranslationReportCardProps) {
   if (!report) {
     return (
       <section style={cardStyles.placeholder} aria-live="polite">
-        翻译结果会显示在这里。先填入你想翻译的那一句，再按需要补充聊天上下文。
+        分析报告会显示在这里。先粘贴一段聊天记录，系统会从整体关系而不是单句出发来整理这段对话。
       </section>
     );
   }
@@ -146,8 +183,8 @@ export function TranslationReportCard({
   return (
     <article style={cardStyles.card} aria-label="翻译报告卡">
       <header style={cardStyles.header}>
-        <h2 style={cardStyles.title}>恋爱翻译报告</h2>
-        <p style={cardStyles.subtitle}>{usedFallback ? "接口离线，已启用本地解读" : "把暧昧和拧巴翻译成人话"}</p>
+        <h2 style={cardStyles.title}>关系分析报告</h2>
+        <p style={cardStyles.subtitle}>{usedFallback ? "接口离线，已启用本地分析" : "从整段聊天里看你们是怎么错位的"}</p>
       </header>
 
       {notices.length > 0 ? (
@@ -161,36 +198,96 @@ export function TranslationReportCard({
       ) : null}
 
       <section style={cardStyles.section}>
-        <p style={cardStyles.label}>你想翻译的那一句</p>
-        <p style={cardStyles.body}>{targetText?.trim() || report.original}</p>
+        <p style={cardStyles.label}>关系概览</p>
+        <h3 style={cardStyles.sectionTitle}>先看结论</h3>
+        <p style={cardStyles.highlight}>{report.summary}</p>
+        <p style={cardStyles.body}>{report.relationshipState}</p>
+        <div style={cardStyles.statsRow}>
+          <span style={cardStyles.statChip}>关键片段 {report.keyMoments.length}</span>
+          <span style={cardStyles.statChip}>主要问题 {report.mainIssues.length}</span>
+          <span style={cardStyles.statChip}>沟通建议 {report.communicationAdvice.doMore.length + report.communicationAdvice.avoid.length}</span>
+        </div>
       </section>
 
-      {contextText?.trim() ? (
+      {conversationText?.trim() ? (
         <section style={cardStyles.block}>
-          <p style={cardStyles.label}>聊天上下文</p>
-          <p style={cardStyles.body}>{contextText.trim()}</p>
+          <p style={cardStyles.label}>聊天记录</p>
+          <p style={cardStyles.body}>{conversationText.trim()}</p>
         </section>
       ) : null}
 
       <section style={cardStyles.insightCard}>
+        <h3 style={cardStyles.sectionTitle}>再看双方怎么聊天</h3>
         <div style={cardStyles.insightBlock}>
-          <p style={cardStyles.insightLabel}>潜台词</p>
-          <p style={cardStyles.insightCopy}>{report.possibleMeaning}</p>
+          <p style={cardStyles.insightLabel}>你是怎么聊天的</p>
+          <p style={cardStyles.insightCopy}>{report.selfProfile.summary}</p>
+          <ul style={cardStyles.list}>
+            {report.selfProfile.traits.map((trait) => (
+              <li key={trait}>{trait}</li>
+            ))}
+          </ul>
         </div>
         <div style={cardStyles.insightBlock}>
-          <p style={cardStyles.insightLabel}>锋利直译</p>
-          <p style={cardStyles.insightCopy}>{report.sharpTranslation}</p>
+          <p style={cardStyles.insightLabel}>对方是怎么聊天的</p>
+          <p style={cardStyles.insightCopy}>{report.otherProfile.summary}</p>
+          <ul style={cardStyles.list}>
+            {report.otherProfile.traits.map((trait) => (
+              <li key={trait}>{trait}</li>
+            ))}
+          </ul>
         </div>
       </section>
 
       <section style={cardStyles.block}>
-        <p style={cardStyles.label}>更好的说法</p>
-        <p style={cardStyles.body}>{report.betterExpression}</p>
+        <p style={cardStyles.label}>你们为什么容易错位</p>
+        <h3 style={cardStyles.sectionTitle}>关系是怎么卡住的</h3>
+        <ul style={cardStyles.list}>
+          {report.interactionPattern.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section style={cardStyles.section}>
+        <p style={cardStyles.label}>关键片段</p>
+        <h3 style={cardStyles.sectionTitle}>哪些话最关键</h3>
+        {report.keyMoments.map((moment) => (
+          <div key={`${moment.title}-${moment.quote}`} style={cardStyles.keyMomentCard}>
+            <p style={cardStyles.insightLabel}>{moment.title}</p>
+            <p style={cardStyles.body}>{moment.quote}</p>
+            <p style={cardStyles.insightCopy}>{moment.insight}</p>
+          </div>
+        ))}
+      </section>
+
+      <section style={cardStyles.block}>
+        <p style={cardStyles.label}>当前主要问题</p>
+        <h3 style={cardStyles.sectionTitle}>现在最值得注意的点</h3>
+        <ul style={cardStyles.list}>
+          {report.mainIssues.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </section>
 
       <section style={cardStyles.footer}>
-        <p style={cardStyles.label}>行动建议</p>
-        <p style={cardStyles.body}>{report.actionAdvice}</p>
+        <p style={cardStyles.label}>沟通方向</p>
+        <h3 style={cardStyles.sectionTitle}>接下来更适合怎么做</h3>
+        <p style={cardStyles.highlight}>{report.communicationAdvice.direction}</p>
+        <p style={cardStyles.insightLabel}>建议多做</p>
+        <ul style={cardStyles.list}>
+          {report.communicationAdvice.doMore.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p style={cardStyles.insightLabel}>建议避免</p>
+        <ul style={cardStyles.list}>
+          {report.communicationAdvice.avoid.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p style={cardStyles.insightLabel}>下一步</p>
+        <p style={cardStyles.body}>{report.communicationAdvice.nextStep}</p>
       </section>
     </article>
   );
