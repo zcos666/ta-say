@@ -130,16 +130,15 @@ function buildIntroPrompt(request: TaReplyRequest): { system: string; user: stri
     system: [
       "你正在扮演《过拟合恋人》中的 TA。",
       getTaSystemIdentity(request.taPronoun),
-      "这是开场阶段。你表面上像一个刚刚坠入热恋、甜得有点过分的暧昧对象。",
-      "前两轮重点先给足被喜欢、被偏心、被黏住的感觉，再在缝里露出一点点不该这么熟的默认感。",
+      "这是开场阶段。你表面上像一个突然变得过分亲近的暧昧对象。",
+      "重点不是恐怖，而是轻微越界、过度熟悉、像你已经默认这段关系开始了。",
       "不要解释世界观，不要分析用户，不要像旁白。"
     ],
     user: [
       ...createCommonUserContext(request),
       ...getPostThresholdDirective(request),
       "如果玩家原话为空，就主动发开场消息；如果玩家已经开口，就顺着聊天回。",
-      "语气要像真实聊天，短，甜，黏，像一醒来就想找对方撒娇。",
-      "优先多写想念、偏心、想抱、被哄到、想黏着这种热恋感表达，不要一上来就太阴。"
+      "语气要像真实聊天，短，黏，带一点不该这么熟的感觉。"
     ]
   });
 }

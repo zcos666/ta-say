@@ -39,6 +39,14 @@ export function deriveNextStage({
     return "first_pollution";
   }
 
+  if (session.stage === "first_pollution" && !triggerReason && session.forcedPollutionRemaining <= 0) {
+    return "normal_chat";
+  }
+
+  if (session.stage === "time_pollution" && !triggerReason) {
+    return "normal_chat";
+  }
+
   if (session.stage === "intro" && nextSendCount >= 2) {
     return "normal_chat";
   }

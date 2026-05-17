@@ -1,4 +1,3 @@
-import { findKeywordRule } from "./pollutionRules";
 import type { StoryEvent, StoryStage, TriggerReason } from "../../types/story";
 
 export interface PollutionResult {
@@ -62,14 +61,13 @@ export function buildPollutionResult({
     };
   }
 
-  const rule = keyword ? findKeywordRule(keyword) : findKeywordRule(userInput);
-  const pollutedText = rule?.pollutedText ?? getGenericPollutionFallback(pollutionCount, sendCount);
+  const pollutedText = getGenericPollutionFallback(pollutionCount, sendCount);
 
   return {
     originalText: userInput,
     pollutedText,
     triggerReason,
-    keyword: rule?.keyword ?? keyword,
+    keyword,
     shouldShowBeforeAfter: true
   };
 }

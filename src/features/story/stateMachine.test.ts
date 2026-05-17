@@ -41,6 +41,19 @@ describe("deriveNextStage", () => {
     ).toBe("save_loaded_twice");
   });
 
+  it("五次强制污染结束后会回到 normal_chat", () => {
+    const session = createEmptySession();
+    session.stage = "first_pollution";
+    session.forcedPollutionRemaining = 0;
+
+    expect(
+      deriveNextStage({
+        session,
+        nextSendCount: 9
+      })
+    ).toBe("normal_chat");
+  });
+
   it("定位结尾事件优先进入 location_reveal", () => {
     const session = createEmptySession();
     session.stage = "normal_chat";

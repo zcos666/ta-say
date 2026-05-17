@@ -26,14 +26,42 @@ describe("evaluateTriggers", () => {
     expect(result.shouldPollute).toBe(true);
   });
 
-  it("五次强制污染结束后，普通发送不会再次自动进入脚本污染", () => {
+  it("前五次连续污染结束后，不再自动进入脚本污染循环", () => {
     const session = createEmptySession();
     session.stage = "first_pollution";
     session.sendCount = 8;
     session.pollutionCount = 5;
     session.forcedPollutionRemaining = 0;
 
-    const result = evaluateTriggers(session, "量子云海正在下雨", 9);
+    const result = evaluateTriggers(session, "今天吃了什么", 9);
+
+    expect(result.triggerReason).toBeUndefined();
+    expect(result.shouldPollute).toBe(false);
+  });
+
+  it("即使旧会话里残留 activeTimedPollution，后续发送也不会继续被污染", () => {
+    const session = createEmptySession();
+    session.stage = "first_pollution";
+    session.sendCount = 8;
+    session.pollutionCount = 5;
+    session.forcedPollutionRemaining = 0;
+    session.activeTimedPollution = true;
+
+    const result = evaluateTriggers(session, "这句应该正常发出去", 9);
+
+    expect(result.triggerReason).toBeUndefined();
+    expect(result.shouldPollute).toBe(false);
+    expect(result.startTimedWindow).toBe(false);
+  });
+
+  it("长句里夹带高频口语词时，不会在后段被误判成关键词污染", () => {
+    const session = createEmptySession();
+    session.stage = "first_pollution";
+    session.sendCount = 8;
+    session.pollutionCount = 5;
+    session.forcedPollutionRemaining = 0;
+
+    const result = evaluateTriggers(session, "好吧那我们晚上再聊，我先去吃饭", 9);
 
     expect(result.triggerReason).toBeUndefined();
     expect(result.shouldPollute).toBe(false);

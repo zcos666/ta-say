@@ -232,6 +232,8 @@ export function ChatPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<ConversationId>("z");
   const [mockReplyingConversationId, setMockReplyingConversationId] = useState<string | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [showRollbackTutorial, setShowRollbackTutorial] = useState(true);
+  const [showDeleteTutorial, setShowDeleteTutorial] = useState(true);
   const [lastViewedConversationSignals, setLastViewedConversationSignals] = useState<Record<MockConversationId, string>>({
     assistant: "normal",
     favorite: "normal",
@@ -768,30 +770,42 @@ export function ChatPage() {
             </div>
             <div className="desktop-chat-header-actions">
               {currentConversation.isStory ? (
-                <button
-                  className={`desktop-header-button${rollbackDisabled ? " rollback-alert" : ""}`}
-                  type="button"
-                  disabled={isReplying || isTaTyping}
-                  aria-label={
-                    rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"
-                  }
-                  title={rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"}
-                  onClick={() => {
-                    if (rollbackDisabled) {
-                      setRollbackFlashVisible(true);
-                      setRollbackFlashNonce((current) => current + 1);
-                      showSystemToast(
-                        `blocked-toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                        rollbackCopy.blockedSystemNotice,
-                        "glitch"
-                      );
-                      return;
+                <div className="desktop-tutorial-anchor">
+                  {showRollbackTutorial ? (
+                    <button
+                      className="desktop-inline-tutorial desktop-inline-tutorial-header"
+                      type="button"
+                      onClick={() => setShowRollbackTutorial(false)}
+                    >
+                      <strong>教程</strong>
+                      <span>点这里进入读档模式，再选一条消息回到那个版本。</span>
+                    </button>
+                  ) : null}
+                  <button
+                    className={`desktop-header-button${rollbackDisabled ? " rollback-alert" : ""}`}
+                    type="button"
+                    disabled={isReplying || isTaTyping}
+                    aria-label={
+                      rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"
                     }
-                    setRollbackMode((current) => !current);
-                  }}
-                >
-                  {rollbackDisabled ? "读档？" : rollbackMode ? "取消读档" : "读档"}
-                </button>
+                    title={rollbackDisabled ? rollbackCopy.buttonDisabledTitle : rollbackMode ? "取消回退模式" : "进入回退模式"}
+                    onClick={() => {
+                      if (rollbackDisabled) {
+                        setRollbackFlashVisible(true);
+                        setRollbackFlashNonce((current) => current + 1);
+                        showSystemToast(
+                          `blocked-toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                          rollbackCopy.blockedSystemNotice,
+                          "glitch"
+                        );
+                        return;
+                      }
+                      setRollbackMode((current) => !current);
+                    }}
+                  >
+                    {rollbackDisabled ? "读档？" : rollbackMode ? "取消读档" : "读档"}
+                  </button>
+                </div>
               ) : null}
               <button
                 className="desktop-header-button icon windows-close-button"
@@ -1003,58 +1017,70 @@ export function ChatPage() {
           {currentConversation.view !== "articles" ? (
             <footer className={`desktop-chat-composer disturbance-${disturbanceLevel}`}>
             <div className="desktop-composer-editor">
-              <div
-                className={`desktop-composer-input-wrap disturbance-${disturbanceLevel}${showComposerDisturbance ? " has-warning" : ""}`}
-              >
-                {showComposerDisturbance ? (
-                  <div className={`desktop-composer-alert disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`}>
-                    <strong>异常</strong>
-                    <span>{composerWarning}</span>
-                  </div>
+              <div className="desktop-tutorial-anchor desktop-tutorial-anchor-composer">
+                {currentConversation.id === "z" && showDeleteTutorial ? (
+                  <button
+                    className="desktop-inline-tutorial desktop-inline-tutorial-composer"
+                    type="button"
+                    onClick={() => setShowDeleteTutorial(false)}
+                  >
+                    <strong>教程</strong>
+                    <span>删字也会被记住。试着在输入框里删掉一句话看看。</span>
+                  </button>
                 ) : null}
-                {showComposerDisturbance ? (
-                  <div className={`desktop-input-undercurrent disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`} aria-hidden="true">
-                    <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
-                    <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
-                  </div>
-                ) : null}
-                <textarea
-                  className="desktop-chat-input"
-                  placeholder={`给${currentConversation.name}发消息`}
-                  disabled={
-                    currentConversation.id === "z"
-                      ? session.stage === "location_reveal" || session.stage === "location_aftermath"
-                      : mockReplyingConversationId === currentConversation.id
-                  }
-                  value={draft}
-                  onKeyDown={handleInputKeyDown}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    const nativeEvent = event.nativeEvent as InputEvent;
-                    const inputType = typeof nativeEvent.inputType === "string" ? nativeEvent.inputType : "";
-                    const isDeleting =
-                      inputType === "deleteContentBackward" || inputType === "deleteContentForward";
+                <div
+                  className={`desktop-composer-input-wrap disturbance-${disturbanceLevel}${showComposerDisturbance ? " has-warning" : ""}`}
+                >
+                  {showComposerDisturbance ? (
+                    <div className={`desktop-composer-alert disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`}>
+                      <strong>异常</strong>
+                      <span>{composerWarning}</span>
+                    </div>
+                  ) : null}
+                  {showComposerDisturbance ? (
+                    <div className={`desktop-input-undercurrent disturbance-${Math.max(disturbanceLevel, draftPauseLevel)}`} aria-hidden="true">
+                      <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
+                      <span>{disturbanceCopy || "你删掉的那句还在后面。"}</span>
+                    </div>
+                  ) : null}
+                  <textarea
+                    className="desktop-chat-input"
+                    placeholder={`给${currentConversation.name}发消息`}
+                    disabled={
+                      currentConversation.id === "z"
+                        ? session.stage === "location_reveal" || session.stage === "location_aftermath"
+                        : mockReplyingConversationId === currentConversation.id
+                    }
+                    value={draft}
+                    onKeyDown={handleInputKeyDown}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      const nativeEvent = event.nativeEvent as InputEvent;
+                      const inputType = typeof nativeEvent.inputType === "string" ? nativeEvent.inputType : "";
+                      const isDeleting =
+                        inputType === "deleteContentBackward" || inputType === "deleteContentForward";
 
-                    updateDraft(draft, nextValue, {
-                      isDeleting,
-                      deletionType:
-                        inputType === "deleteContentBackward" || inputType === "deleteContentForward"
-                          ? inputType
-                          : "",
-                      isComposing: Boolean(nativeEvent.isComposing)
-                      ,
-                      timestamp: Date.now()
-                    });
-                    setDraft(nextValue);
-                  }}
-                />
-                <span className="desktop-enter-hint">Enter 发送</span>
-                {currentConversation.id === "z" && draftWhisper ? (
-                  <div className={`desktop-draft-whisper level-${draftPauseLevel}`}>
-                    <span>{draftWhisper}</span>
-                    {draftEditCount >= 2 ? <small>这一句已经被改了 {draftEditCount} 次。</small> : null}
-                  </div>
-                ) : null}
+                      updateDraft(draft, nextValue, {
+                        isDeleting,
+                        deletionType:
+                          inputType === "deleteContentBackward" || inputType === "deleteContentForward"
+                            ? inputType
+                            : "",
+                        isComposing: Boolean(nativeEvent.isComposing)
+                        ,
+                        timestamp: Date.now()
+                      });
+                      setDraft(nextValue);
+                    }}
+                  />
+                  <span className="desktop-enter-hint">Enter 发送</span>
+                  {currentConversation.id === "z" && draftWhisper ? (
+                    <div className={`desktop-draft-whisper level-${draftPauseLevel}`}>
+                      <span>{draftWhisper}</span>
+                      {draftEditCount >= 2 ? <small>这一句已经被改了 {draftEditCount} 次。</small> : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <button
                 className="desktop-send-button"

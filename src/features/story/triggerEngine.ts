@@ -1,4 +1,3 @@
-import { findKeywordRule } from "../pollution/pollutionRules";
 import { countNarrativeConversationMessages, type SessionState } from "../../types/session";
 import type { StoryEvent, TriggerReason } from "../../types/story";
 
@@ -17,7 +16,6 @@ export function evaluateTriggers(
   userInput: string,
   nextSendCount: number
 ): TriggerEvaluation {
-  const keywordRule = findKeywordRule(userInput);
   const events: StoryEvent[] = [];
   const nextTotalConversationCount = countNarrativeConversationMessages(session.chatHistory) + 1;
   const enterLocationReveal =
@@ -33,11 +31,7 @@ export function evaluateTriggers(
       : "scripted"
     : enterLocationReveal
       ? "scripted"
-    : session.activeTimedPollution
-      ? "timed"
-      : keywordRule
-        ? "keyword"
-        : undefined;
+      : undefined;
 
   const shouldPollute = Boolean(triggerReason);
   if (enterLocationReveal) {
@@ -49,9 +43,9 @@ export function evaluateTriggers(
   return {
     shouldPollute,
     triggerReason,
-    keyword: keywordRule?.keyword,
+    keyword: undefined,
     events,
-    startTimedWindow: nextSendCount === 4 && !session.activeTimedPollution,
+    startTimedWindow: false,
     enterMetaBreak: enterLocationReveal ? false : enterMetaBreak,
     enterLocationReveal,
   };
