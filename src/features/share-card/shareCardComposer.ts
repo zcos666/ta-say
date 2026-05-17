@@ -37,6 +37,9 @@ export interface ShareCardViewModel {
   endingType: string;
   resultLabel: string;
   verdictLine: string;
+  dreamConversationPreview: string;
+  dreamReferenceText: string;
+  translatorContextText: string;
   hardestSentence: string;
   translatedHighlight: string;
   shareLine: string;
@@ -190,6 +193,35 @@ function resolveHardestSentence(session: ShareCardComposerInput["session"], stor
   return getLastUserSentence(session);
 }
 
+function resolveDreamReferenceText(session: ShareCardComposerInput["session"], storedCard?: ShareCardData) {
+  if (storedCard?.dreamReferenceText?.trim()) {
+    return storedCard.dreamReferenceText.trim();
+  }
+
+  if (session.hardestSentence?.trim()) {
+    return session.hardestSentence.trim();
+  }
+
+  return getLastUserSentence(session);
+}
+
+function resolveDreamConversationPreview(session: ShareCardComposerInput["session"]) {
+  const recentLines = session.chatHistory
+    .filter((message) => message.role === "user" || message.role === "ta")
+    .slice(-4)
+    .map((message) => `${message.role === "user" ? "我" : "TA"}：${message.originalText || message.displayedText}`);
+
+  if (recentLines.length > 0) {
+    return recentLines.join("\n");
+  }
+
+  return "TA：醒了吗？\n我：没事，你忙吧。";
+}
+
+function resolveTranslatorContextText(storedCard?: ShareCardData) {
+  return storedCard?.translatorContextText?.trim() ?? "";
+}
+
 function resolveTranslatedHighlight(
   translatorReport: LoveTranslationReport | undefined,
   storedCard?: ShareCardData,
@@ -221,6 +253,9 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
   const storedCard = session.shareCardData;
   const endingType = resolveEndingType(session, storedCard);
   const hardestSentence = resolveHardestSentence(session, storedCard);
+  const dreamConversationPreview = resolveDreamConversationPreview(session);
+  const dreamReferenceText = resolveDreamReferenceText(session, storedCard);
+  const translatorContextText = resolveTranslatorContextText(storedCard);
   const translatedHighlight = resolveTranslatedHighlight(session.translatorReport, storedCard);
   const shareLine = resolveShareLine(endingType, storedCard);
   const pollutionCount = storedCard?.pollutionCount ?? session.pollutionCount;
@@ -252,6 +287,9 @@ export function shareCardComposer({ session }: ShareCardComposerInput): ShareCar
     endingType,
     resultLabel,
     verdictLine,
+    dreamConversationPreview,
+    dreamReferenceText: wrapQuote(dreamReferenceText),
+    translatorContextText,
     hardestSentence: wrapQuote(hardestSentence),
     translatedHighlight: wrapQuote(translatedHighlight),
     shareLine,

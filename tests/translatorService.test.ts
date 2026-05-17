@@ -36,8 +36,8 @@ describe("translateConversation", () => {
     });
 
     const result = await translateConversation({
-      chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      taPronoun: "TA",
+      targetText: "没事，你忙吧。",
+      contextText: "昨晚你怎么这么晚回？\n没事，你忙吧。",
       endingType: "梦醒翻译家",
       pollutionCount: 1,
       deletedDraftCount: 0,
@@ -66,8 +66,8 @@ describe("translateConversation", () => {
     shareLineMock.mockRejectedValueOnce(new Error("share offline"));
 
     const result = await translateConversation({
-      chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      taPronoun: "TA",
+      targetText: "没事，你忙吧。",
+      contextText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
       endingType: "草稿幽灵",
       pollutionCount: 1,
       deletedDraftCount: 0,
@@ -87,8 +87,8 @@ describe("translateConversation", () => {
     shareLineMock.mockRejectedValueOnce(new Error("offline"));
 
     const result = await translateConversation({
-      chatText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
-      taPronoun: "TA",
+      targetText: "没事，你忙吧。",
+      contextText: "A: 你今天怎么这么晚回？\nB: 没事，你忙吧。",
       endingType: "草稿幽灵",
       pollutionCount: 7,
       deletedDraftCount: 3,

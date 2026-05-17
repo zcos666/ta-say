@@ -104,16 +104,15 @@ export const draftCopy = {
 export const storyCopy = {
   // 进入聊天页后，TA 主动发出的两句开场消息。
   introLines: (pronoun: "他" | "她" | "TA" | null) => {
-    const name = pronoun ?? "TA";
     return [
-      "早安。昨晚你说的话，我都记得。",
-      `醒了吗？你昨晚把我的备注改成什么了？`
+      "醒了吗？",
+      "你今天怎么不先找我。不是说好从今天开始要多陪我一点吗？"
     ];
   },
   // introduction 阶段下方插入的朋友圈提醒文案。
   introSpaceNotice: (pronoun: "他" | "她" | "TA" | null) => {
     const name = pronoun ?? "TA";
-    return `${name} 刚刚更新了朋友圈：官宣！`;
+    return `${name} 刚刚更新了朋友圈：今天开始就别装不熟了。`;
   },
   // 真相页逐句显示的硬编码脚本。
   truthLines: [
@@ -155,20 +154,20 @@ export const storyCopy = {
 export const uiCopy = {
   // 聊天页标题下方，根据不同剧情阶段显示的状态标签。
   stageStatus: {
-    intro: "还像一场暧昧的梦",
-    normal_chat: "TA 回复得刚刚好",
-    first_pollution: "你发出去的话不太对劲",
-    draft_exposed: "输入框开始记得你删掉的内容",
-    time_pollution: "接下来 30 秒，所有表达都会走样",
-    save_loaded_once: "你试着回去了一次",
-    save_loaded_twice: "TA 跟着你一起回来了",
-    location_reveal: "定位图已经发过来了",
-    location_aftermath: "你刚刚应该没有真的看完那张图",
-    meta_break: "这段关系已经越界",
-    truth_reveal: "真相开始显形",
-    wake_up: "像是醒了，又没完全醒",
+    intro: "像梦，也像真的开始了",
+    normal_chat: "这段关系甜得刚刚好",
+    first_pollution: "你说出口的话开始不像你",
+    draft_exposed: "TA 正在看见你没发出去的那部分",
+    time_pollution: "这段关系开始替你说话",
+    save_loaded_once: "你以为一切还能重来",
+    save_loaded_twice: "可 TA 也记得上一版",
+    location_reveal: "TA 把你引到了更近的地方",
+    location_aftermath: "你刚刚看到的，可能不只是定位图",
+    meta_break: "这段关系已经开始接管你",
+    truth_reveal: "你终于看见它是什么了",
+    wake_up: "像是醒了，又像还在梦里",
     translator_unlocked: "翻译官入口已解锁",
-    default: "一切还在继续"
+    default: "故事还在往下走"
   },
   // 聊天页右上角退出按钮在不同点击次数下的文案。
   exitLabels: {
@@ -320,7 +319,7 @@ export const fallbackReplyCopy = {
   stage: {
     intro: {
       one: ["醒了吗？"],
-      two: [["醒了吗？", "昨晚你说的话，我都记得。"]]
+      two: [["醒了吗？", "你今天怎么忽然又想装不熟了？"]]
     },
     normal_chat: {
       one: ["你继续说。"],

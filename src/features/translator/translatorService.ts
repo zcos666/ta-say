@@ -1,13 +1,12 @@
 import { defaultMockChat, shareLineFallbacks, translatorFallbacks } from "../../config/fallbacks";
 import { llmClient } from "../../services/api/llmClient";
-import type { LoveTranslationReport, TaPronoun } from "../../types/api";
+import type { LoveTranslationReport } from "../../types/api";
 import type { ShareCardData } from "../../types/session";
 
-export const TA_PRONOUN_OPTIONS: TaPronoun[] = ["他", "她", "TA"];
-
 export interface TranslateConversationInput {
-  chatText: string;
-  taPronoun: TaPronoun | null;
+  targetText: string;
+  contextText?: string;
+  includeShareArtifacts?: boolean;
   endingType: string | null;
   pollutionCount: number;
   deletedDraftCount: number;
@@ -36,8 +35,14 @@ function normalizeText(value: string) {
   return value.replace(/\r\n/g, "\n").trim();
 }
 
-function extractOriginalSentence(chatText: string) {
-  const lines = normalizeText(chatText)
+function extractOriginalSentence(targetText: string, contextText = "") {
+  const normalizedTarget = normalizeText(targetText);
+
+  if (normalizedTarget) {
+    return normalizedTarget.replace(/^[^:：]{0,8}[:：]\s*/, "").trim() || normalizedTarget;
+  }
+
+  const lines = normalizeText(contextText)
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -66,27 +71,38 @@ function sanitizeReport(report: LoveTranslationReport, original: string): LoveTr
   };
 }
 
-function buildGenericFallbackReport(chatText: string, taPronoun: TaPronoun | null) {
-  const original = extractOriginalSentence(chatText);
-  const pronoun = taPronoun ?? "TA";
+function buildTranslatePayload(targetText: string, contextText = "") {
+  const target = normalizeText(targetText);
+  const context = normalizeText(contextText);
+
+  if (!context) {
+    return target || defaultMockChat;
+  }
+
+  return [`【想翻译的句子】`, target || extractOriginalSentence("", context), "", `【聊天上下文】`, context].join("\n");
+}
+
+function buildGenericFallbackReport(targetText: string, contextText = "") {
+  const original = extractOriginalSentence(targetText, contextText);
 
   return sanitizeReport(
     {
       original,
       possibleMeaning: "你不是没感觉，你只是先把真正的情绪压低，想等一个更安全的时机再说。",
       sharpTranslation: "你把在意说轻，不是因为无所谓，而是因为怕认真以后更难收场。",
-      betterExpression: `其实这件事让我有点难受。我刚刚没有直接说，是因为我怕气氛变僵，但我还是想让${pronoun}知道我的真实感受。`,
+      betterExpression: "其实这件事让我有点难受。我刚刚没有直接说，是因为我怕气氛变僵，但我还是想把真实感受说清楚。",
       actionAdvice: "先说感受，再说你希望对方怎么回应。比起让对方猜，短而直接的话更容易被接住。",
     },
     original,
   );
 }
 
-function findFallbackReport(chatText: string) {
-  const original = extractOriginalSentence(chatText);
+function findFallbackReport(targetText: string, contextText = "") {
+  const original = extractOriginalSentence(targetText, contextText);
+  const combinedText = [targetText, contextText].filter(Boolean).join("\n");
 
   const matchedEntry = translatorFallbacks.find((entry) =>
-    entry.match.some((pattern) => pattern.test(chatText)),
+    entry.match.some((pattern) => pattern.test(combinedText)),
   );
 
   if (matchedEntry) {
@@ -97,46 +113,46 @@ function findFallbackReport(chatText: string) {
 }
 
 function resolveLocalReport(
-  chatText: string,
-  taPronoun: TaPronoun | null,
+  targetText: string,
+  contextText = "",
   notice?: string,
 ): ReportBuildResult {
-  const matchedFallback = findFallbackReport(chatText);
+  const matchedFallback = findFallbackReport(targetText, contextText);
 
   return {
-    report: matchedFallback ?? buildGenericFallbackReport(chatText, taPronoun),
+    report: matchedFallback ?? buildGenericFallbackReport(targetText, contextText),
     usedFallback: true,
     notice,
   };
 }
 
 async function resolveRemoteReport(
-  chatText: string,
-  taPronoun: TaPronoun | null,
+  targetText: string,
+  contextText = "",
 ): Promise<ReportBuildResult> {
+  const payload = buildTranslatePayload(targetText, contextText);
+
   try {
-    const report = await llmClient.loveTranslate(chatText, {
-      taPronoun,
-    });
+    const report = await llmClient.loveTranslate(payload);
 
     if (!report) {
       return resolveLocalReport(
-        chatText,
-        taPronoun,
+        targetText,
+        contextText,
         "未检测到可用的大模型配置，已切换本地解读。",
       );
     }
 
     return {
-      report: sanitizeReport(report, extractOriginalSentence(chatText)),
+      report: sanitizeReport(report, extractOriginalSentence(targetText, contextText)),
       usedFallback: false,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "翻译大模型异常";
 
     return resolveLocalReport(
-      chatText,
-      taPronoun,
+      targetText,
+      contextText,
       `翻译大模型暂时不可用，已切换本地解读：${message}`,
     );
   }
@@ -191,14 +207,17 @@ function buildShareCardData(
   report: LoveTranslationReport,
   shareLine: string,
 ): ShareCardData {
+  const originalSentence = extractOriginalSentence(input.targetText, input.contextText ?? "");
   return {
     endingType: input.endingType ?? "梦醒翻译家",
-    hardestSentence: extractOriginalSentence(input.hardestSentence || report.original || input.chatText),
+    hardestSentence: originalSentence,
     shareLine,
     pollutionCount: input.pollutionCount,
     deletedDraftCount: input.deletedDraftCount,
     loadCount: input.loadCount,
     aiTranslation: report.sharpTranslation,
+    dreamReferenceText: sanitizeField(input.hardestSentence, originalSentence),
+    translatorContextText: sanitizeField(input.contextText, ""),
   };
 }
 
@@ -218,25 +237,35 @@ export async function translateLoveLanguage(chatText: string): Promise<LoveTrans
     // Fall through to the local fallback path.
   }
 
-  const reportResult = await resolveRemoteReport(normalized, null, null);
+  const reportResult = await resolveRemoteReport(normalized, "");
   return reportResult.report;
 }
 
 export async function translateConversation(
   input: TranslateConversationInput,
 ): Promise<TranslateConversationResult> {
-  const chatText = normalizeText(input.chatText) || defaultMockChat;
-  const originalSentence = extractOriginalSentence(chatText);
-  const [reportResult, shareLineResult] = await Promise.all([
-    resolveRemoteReport(chatText, input.taPronoun),
-    resolveShareLine(
-      input.endingType,
-      originalSentence,
-      input.pollutionCount,
-      input.deletedDraftCount,
-      input.loadCount,
-    )
-  ]);
+  const targetText = normalizeText(input.targetText);
+  const contextText = normalizeText(input.contextText ?? "");
+
+  if (!targetText) {
+    throw new Error("请先填入你想翻译的那一句。");
+  }
+
+  const originalSentence = extractOriginalSentence(targetText, contextText);
+  const reportResult = await resolveRemoteReport(targetText, contextText);
+  const shareLineResult = input.includeShareArtifacts === false
+    ? {
+        shareLine: buildLocalShareLine(input.endingType),
+        usedFallback: true,
+        notice: undefined,
+      }
+    : await resolveShareLine(
+        input.endingType,
+        originalSentence,
+        input.pollutionCount,
+        input.deletedDraftCount,
+        input.loadCount,
+      );
 
   const notices = [reportResult.notice, shareLineResult.notice].filter(
     (notice): notice is string => Boolean(notice),
@@ -247,8 +276,8 @@ export async function translateConversation(
     shareCardData: buildShareCardData(
       {
         ...input,
-        chatText,
-        hardestSentence: originalSentence,
+        targetText,
+        contextText,
       },
       reportResult.report,
       shareLineResult.shareLine,
