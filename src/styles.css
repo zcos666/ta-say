@@ -2238,8 +2238,9 @@ svg {
 }
 
 .home-page {
-  min-height: 100dvh;
-  padding: 32px 20px 64px;
+  display: block;
+  min-height: auto;
+  padding: clamp(12px, 3.5vw, 32px) clamp(12px, 4vw, 20px) calc(28px + env(safe-area-inset-bottom));
 }
 
 .hero-card {
@@ -2326,7 +2327,12 @@ svg {
 
 .home-shell {
   position: relative;
-  overflow: hidden;
+  display: grid;
+  gap: 16px;
+  min-height: auto;
+  height: auto;
+  min-height: auto;
+  overflow: visible;
 }
 
 .home-shell::before {
@@ -2357,9 +2363,15 @@ svg {
 .home-hero-stack,
 .home-panel-grid,
 .home-effect-card,
-.home-shell > .stack {
+.home-shell > .stack,
+.home-action-stack {
   position: relative;
   z-index: 1;
+}
+
+.home-action-stack {
+  display: grid;
+  gap: 12px;
 }
 
 .home-hero-stack {
@@ -2626,5 +2638,48 @@ svg {
   .home-story-grid,
   .home-panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-page {
+    display: block;
+  }
+
+  .home-shell {
+    border-radius: 24px;
+  }
+
+  .home-page .spacer {
+    display: none;
+  }
+
+  .home-dream-chat {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .home-page {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .home-shell {
+    width: 100%;
+    border-radius: 22px;
+  }
+
+  .home-hero-alert {
+    width: 100%;
+  }
+
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-dream-message-stack {
+    max-width: 100%;
+  }
+
+  .home-dream-echo {
+    margin-left: 0;
   }
 }

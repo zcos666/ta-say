@@ -300,12 +300,15 @@ const pageStyles: Record<string, CSSProperties> = {
 export default function TranslatorPage() {
   const navigate = useNavigate();
   const hardestSentence = useAppStore((state) => state.session.hardestSentence);
+  const taPronoun = useAppStore((state) => state.session.taPronoun);
   const endingType = useAppStore((state) => state.session.endingType);
   const pollutionCount = useAppStore((state) => state.session.pollutionCount);
   const deletedDraftCount = useAppStore((state) => state.session.deletedDraftCount);
   const loadCount = useAppStore((state) => state.session.loadCount);
   const hasFinishedGame = useAppStore((state) => state.session.hasFinishedGame);
   const translatorReport = useAppStore((state) => state.session.translatorReport);
+  const resetForReplay = useAppStore((state) => state.resetForReplay);
+  const selectSetup = useAppStore((state) => state.selectSetup);
   const saveTranslatorReport = useAppStore((state) => state.saveTranslatorReport);
   const saveShareCardData = useAppStore((state) => state.saveShareCardData);
 
@@ -388,6 +391,19 @@ export default function TranslatorPage() {
             先填一句你最想拆开的表达。如果只看这一句不够，再补几句聊天上下文，系统会一起帮你看。
           </p>
           <p style={pageStyles.warningStrip}>它会把梦里留下的对话和你后来补进去的聊天一起归档，所以有些东西会比你自己记得更完整。</p>
+          <div style={pageStyles.buttonRow}>
+            <button
+              type="button"
+              style={pageStyles.secondaryButton}
+              onClick={async () => {
+                resetForReplay();
+                await selectSetup(taPronoun ?? "TA");
+                navigate("/chat");
+              }}
+            >
+              直接进入游戏
+            </button>
+          </div>
         </section>
 
         <section style={pageStyles.grid}>

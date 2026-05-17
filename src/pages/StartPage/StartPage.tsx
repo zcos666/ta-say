@@ -20,7 +20,6 @@ const experienceNote =
 
 export function StartPage() {
   const navigate = useNavigate();
-  const hasFinishedGame = useAppStore((state) => state.session.hasFinishedGame);
   const isReplying = useAppStore((state) => state.isReplying);
   const resetForReplay = useAppStore((state) => state.resetForReplay);
   const selectSetup = useAppStore((state) => state.selectSetup);
@@ -29,7 +28,7 @@ export function StartPage() {
 
   return (
     <main className="screen home-page">
-      <section className="shell page page-body stack home-shell">
+      <section className="shell page-body home-shell">
         <div className="home-hero-stack">
           <p className="tiny">恋爱互动叙事 / DREAM LOG 01</p>
           <h1 className="hero-title">过拟合恋人</h1>
@@ -99,9 +98,7 @@ export function StartPage() {
           <strong>这一轮会被记下来的东西</strong>
           <p className="meta-copy">{selectedCopy}</p>
         </div>
-        <div className="spacer" />
-
-        <div className="stack">
+        <div className="home-action-stack">
           <button
             className="button-primary home-primary-button"
             disabled={isReplying}
@@ -113,11 +110,9 @@ export function StartPage() {
           >
             {isReplying ? "进入中..." : "开始聊天"}
           </button>
-          {hasFinishedGame ? (
-            <button className="button-secondary" onClick={() => navigate("/translator")}>
-              进入恋爱翻译官
-            </button>
-          ) : null}
+          <button className="button-secondary" onClick={() => navigate("/translator")}>
+            进入恋爱翻译器
+          </button>
         </div>
       </section>
     </main>
