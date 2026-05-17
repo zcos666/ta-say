@@ -8,6 +8,7 @@ import { LocationPage } from "./pages/LocationPage/LocationPage";
 import { TruthPage } from "./pages/TruthPage/TruthPage";
 import { WakePage } from "./pages/WakePage/WakePage";
 import ShareCardPage from "./pages/ShareCardPage";
+import DistillationPage from "./pages/DistillationPage";
 import TranslatorPage from "./pages/TranslatorPage";
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/truth" element={<TruthPage />} />
       <Route path="/wake" element={<WakePage />} />
       <Route path="/translator" element={<TranslatorPage />} />
+      <Route path="/profiles" element={<DistillationPage />} />
       <Route path="/share" element={<ShareCardPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -113,6 +113,9 @@ export function StartPage() {
           <button className="button-secondary" onClick={() => navigate("/translator")}>
             进入恋爱翻译器
           </button>
+          <button className="button-secondary" onClick={() => navigate("/profiles")}>
+            进入关系蒸馏台
+          </button>
         </div>
       </section>
     </main>

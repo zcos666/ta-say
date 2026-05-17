@@ -1,3 +1,5 @@
+import type { ConversationMessage, OtherProfile, SelfProfile } from "./distillation";
+
 export type TaPronoun = "他" | "她" | "TA";
 
 export interface LoveTranslateRequest {
@@ -68,3 +70,15 @@ export interface ShareLineRequest {
 export interface ShareLineResponse {
   shareLine: string;
 }
+
+export interface DistillSelfRequest {
+  conversation: ConversationMessage[];
+}
+
+export interface DistillOtherRequest {
+  conversation: ConversationMessage[];
+}
+
+export type DistillSelfResponse = SelfProfile;
+
+export type DistillOtherResponse = OtherProfile;

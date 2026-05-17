@@ -403,6 +403,9 @@ export default function TranslatorPage() {
             >
               直接进入游戏
             </button>
+            <button type="button" style={pageStyles.secondaryButton} onClick={() => navigate("/profiles")}>
+              进入关系蒸馏台
+            </button>
           </div>
         </section>
 

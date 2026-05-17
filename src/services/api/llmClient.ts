@@ -9,6 +9,7 @@ import type {
   TaReplyRequest,
   TaReplyResponse,
 } from "../../types/api";
+import type { ConversationMessage, OtherProfile, SelfProfile } from "../../types/distillation";
 
 type ChatMessageContent = string | Array<{ type?: string; text?: string }> | undefined;
 
@@ -217,6 +218,38 @@ function buildShareLineMessages(payload: ShareLineRequest): { system: string; us
       `反义污染次数：${payload.pollutionCount}`,
       `删除草稿次数：${payload.deletedCount}`,
       `读档次数：${payload.loadCount}`,
+    ].join("\n"),
+  };
+}
+
+function formatConversationForPrompt(conversation: ConversationMessage[]) {
+  return conversation
+    .map((message, index) => `${index + 1}. ${message.speaker === "self" ? "self" : "other"}: ${message.content}`)
+    .join("\n");
+}
+
+function buildDistillMessages(
+  target: "self" | "other",
+  conversation: ConversationMessage[],
+): { system: string; user: string } {
+  const subjectLabel = target === "self" ? "self（用户本人）" : "other（聊天对象）";
+
+  return {
+    system: [
+      "你是一个聊天关系蒸馏器。",
+      `你的任务是根据完整聊天记录，提炼 ${subjectLabel} 的结构化画像。`,
+      "输出必须是 JSON，不要代码块，不要额外说明。",
+      'JSON 格式固定为 {"summary":"","styleTags":[],"emotionalTraits":[],"communicationHabits":[],"interactionPreferences":[],"relationshipSignals":[],"evidence":[{"quote":"","reason":""}] }。',
+    ].join("\n"),
+    user: [
+      `请只分析 ${subjectLabel}，但可以参考双方互动来判断。`,
+      "要求：",
+      "1. 不要做心理诊断，不要下绝对结论。",
+      "2. 每个字段尽量短句化，便于前端分块渲染。",
+      "3. relationshipSignals 表示这个人当前在关系里释放出的关键信号。",
+      "4. evidence 至少给出 2 条可支撑判断的原话，quote 要直接摘录聊天内容。",
+      "5. 如果证据不足，就保守输出，不要编造不存在的细节。",
+      `聊天记录：\n${formatConversationForPrompt(conversation)}`,
     ].join("\n"),
   };
 }
@@ -630,6 +663,54 @@ async function shareLine(payload: ShareLineRequest): Promise<ShareLineResponse |
   };
 }
 
+async function distillSelf(conversation: ConversationMessage[]): Promise<SelfProfile | null> {
+  if (!isEnabled()) {
+    return null;
+  }
+
+  const prompt = buildDistillMessages("self", conversation);
+  const rawContent = await requestChatCompletion([
+    {
+      role: "system",
+      content: prompt.system,
+    },
+    {
+      role: "user",
+      content: prompt.user,
+    },
+  ], {
+    temperature: 0.4,
+    maxTokens: 420,
+    preferJsonMode: true,
+  });
+
+  return extractJson<SelfProfile>(rawContent);
+}
+
+async function distillOther(conversation: ConversationMessage[]): Promise<OtherProfile | null> {
+  if (!isEnabled()) {
+    return null;
+  }
+
+  const prompt = buildDistillMessages("other", conversation);
+  const rawContent = await requestChatCompletion([
+    {
+      role: "system",
+      content: prompt.system,
+    },
+    {
+      role: "user",
+      content: prompt.user,
+    },
+  ], {
+    temperature: 0.4,
+    maxTokens: 420,
+    preferJsonMode: true,
+  });
+
+  return extractJson<OtherProfile>(rawContent);
+}
+
 export const llmClient = {
   isEnabled,
   isFastEnabled,
@@ -637,4 +718,6 @@ export const llmClient = {
   rewritePollution,
   loveTranslate,
   shareLine,
+  distillSelf,
+  distillOther,
 };

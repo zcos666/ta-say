@@ -24,6 +24,9 @@ export function WakePage() {
           <button className="button-secondary" onClick={() => navigate("/translator")}>
             继续翻译没说出口的话
           </button>
+          <button className="button-secondary" onClick={() => navigate("/profiles")}>
+            继续蒸馏双方画像
+          </button>
         </div>
       </section>
     </main>

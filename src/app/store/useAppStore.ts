@@ -13,6 +13,7 @@ import { deriveNextStage } from "../../features/story/stateMachine";
 import { evaluateTriggers } from "../../features/story/triggerEngine";
 import { storageRepository } from "../../services/storage/storageRepository";
 import type { LoveTranslationReport } from "../../types/api";
+import type { OtherProfile, SelfProfile } from "../../types/distillation";
 import {
   countNarrativeConversationMessages,
   createChatMessage,
@@ -62,6 +63,8 @@ function withPersistentFields(session: SessionState, persisted: PersistedState):
     ...session,
     hasFinishedGame: persisted.hasFinishedGame,
     metaMemory: [...persisted.metaMemory],
+    selfProfile: persisted.selfProfile,
+    otherProfile: persisted.otherProfile,
     shareCardData: persisted.shareCardData
   };
 }
@@ -81,6 +84,8 @@ function persistSession(session: SessionState, overrides: Partial<PersistedState
     hasFinishedGame: session.hasFinishedGame,
     loadCount: session.loadCount,
     metaMemory: session.metaMemory,
+    selfProfile: session.selfProfile,
+    otherProfile: session.otherProfile,
     shareCardData: session.shareCardData,
     version: current.version
   });
@@ -141,6 +146,7 @@ interface AppStore {
   resetForReplay: () => void;
   patchSession: (patch: Partial<SessionState>) => void;
   saveTranslatorReport: (report: LoveTranslationReport) => void;
+  saveDistilledProfiles: (profiles: { selfProfile?: SelfProfile; otherProfile?: OtherProfile }) => void;
   saveShareCardData: (data: ShareCardData) => void;
   getExitLabel: () => string;
   getSpaceLabel: () => string;
@@ -858,6 +864,8 @@ export const useAppStore = create<AppStore>((set, get) => {
         hasFinishedGame: persisted.hasFinishedGame,
         loadCount: 0,
         metaMemory: [...persisted.metaMemory],
+        selfProfile: persisted.selfProfile,
+        otherProfile: persisted.otherProfile,
         shareCardData: persisted.shareCardData
         };
         persistSession(nextSession);
@@ -885,6 +893,17 @@ export const useAppStore = create<AppStore>((set, get) => {
       const nextSession = {
         ...state.session,
         translatorReport: report
+      };
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
+  },
+
+  saveDistilledProfiles: (profiles) => {
+    set((state) => {
+      const nextSession = {
+        ...state.session,
+        ...profiles,
       };
       persistSession(nextSession);
       return { session: nextSession };

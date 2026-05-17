@@ -205,6 +205,9 @@ export function ShareCardPage() {
             <button type="button" onClick={() => navigate("/translator")} style={pageStyles.secondaryButton}>
               继续翻译没说出口的话
             </button>
+            <button type="button" onClick={() => navigate("/profiles")} style={pageStyles.secondaryButton}>
+              查看关系蒸馏结果
+            </button>
           </div>
         </section>
 

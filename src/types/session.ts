@@ -1,4 +1,5 @@
 import type { LoveTranslationReport } from "./api";
+import type { OtherProfile, SelfProfile } from "./distillation";
 import type { StoryStage, TaPronoun } from "./story";
 
 export interface ChatMessage {
@@ -51,6 +52,8 @@ export interface SessionState {
   endingType: string | null;
   hardestSentence: string;
   translatorReport?: LoveTranslationReport;
+  selfProfile?: SelfProfile;
+  otherProfile?: OtherProfile;
   shareCardData?: ShareCardData;
 }
 
@@ -71,6 +74,8 @@ export interface PersistedState {
   autoSaveSnapshot?: SessionSnapshot;
   loadCount: number;
   metaMemory: string[];
+  selfProfile?: SelfProfile;
+  otherProfile?: OtherProfile;
   shareCardData?: ShareCardData;
   version: number;
 }
