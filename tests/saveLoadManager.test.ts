@@ -24,6 +24,7 @@ function createBaseSession(): SessionState {
     deletedDraftCount: 0,
     loadCount: 0,
     sendCount: 2,
+    forcedPollutionRemaining: 0,
     spaceVisitCount: 0,
     exitClickCount: 0,
     activeTimedPollution: false,

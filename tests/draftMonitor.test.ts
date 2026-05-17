@@ -7,8 +7,8 @@ import { storageRepository } from "../src/services/storage/storageRepository";
 import { createEmptySession } from "../src/types/session";
 
 describe("draftMonitor", () => {
-  function getExpectedReplies(deletedDraft: string) {
-    return draftCopy.immediateReplyTemplates.map((template) => template(deletedDraft));
+  function getExpectedReply(deletedDraft: string) {
+    return draftCopy.buildImmediateReply(deletedDraft);
   }
 
   beforeEach(() => {
@@ -55,7 +55,7 @@ describe("draftMonitor", () => {
     expect(session.deletedDrafts).toEqual(["我其实很难过"]);
     expect(session.deletedDraftCount).toBe(1);
     expect(session.stage).toBe("draft_exposed");
-    expect(getExpectedReplies("我其实很难过")).toContain(session.chatHistory.at(-1)?.displayedText);
+    expect(session.chatHistory[session.chatHistory.length - 1]?.displayedText).toBe(getExpectedReply("我其实很难过"));
   });
 
   it("没有显式删除动作时不触发删稿逻辑", () => {
@@ -100,6 +100,6 @@ describe("draftMonitor", () => {
 
     expect(session.deletedDrafts).toEqual(["很难过"]);
     expect(session.deletedDraftCount).toBe(1);
-    expect(getExpectedReplies("很难过")).toContain(session.chatHistory.at(-1)?.displayedText);
+    expect(session.chatHistory[session.chatHistory.length - 1]?.displayedText).toBe(getExpectedReply("很难过"));
   });
 });

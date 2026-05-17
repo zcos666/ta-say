@@ -34,8 +34,11 @@ function createMockMessage(
   };
 }
 
+type MockConversationId = "assistant" | "favorite" | "group";
+type ConversationId = "z" | MockConversationId;
+
 type MockConversation = {
-  id: string;
+  id: MockConversationId;
   name: string;
   subtitle: string;
   avatarLabel: string;
@@ -52,7 +55,30 @@ type MockConversation = {
   }>;
 };
 
-function createInitialMockConversations(): Record<string, MockConversation> {
+type ConversationListItem = {
+  id: ConversationId;
+  name: string;
+  subtitle: string;
+  avatarLabel: string;
+  preview: string;
+  time: string;
+  hasUnread: boolean;
+};
+
+type StoryConversation = {
+  id: "z";
+  name: string;
+  subtitle: string;
+  avatarLabel: string;
+  isStory: true;
+  view: "chat";
+  articles: [];
+  messages: ChatMessage[];
+};
+
+type ActiveConversation = StoryConversation | (MockConversation & { isStory: false });
+
+function createInitialMockConversations(): Record<MockConversationId, MockConversation> {
   return {
     assistant: {
       ...mockChatCopy.assistant,
@@ -197,19 +223,21 @@ export function ChatPage() {
   const sendLocationTurnBack = useAppStore((state) => state.sendLocationTurnBack);
   const enterTruthReveal = useAppStore((state) => state.enterTruthReveal);
   const revealLocationLie = useAppStore((state) => state.revealLocationLie);
+  const revealLocationOmnipresence = useAppStore((state) => state.revealLocationOmnipresence);
   const getSpaceLabel = useAppStore((state) => state.getSpaceLabel);
   const [draft, setDraft] = useState("");
   const [rollbackMode, setRollbackMode] = useState(false);
   const rollbackDisabled = session.loadCount >= 3;
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [selectedConversationId, setSelectedConversationId] = useState("z");
+  const [selectedConversationId, setSelectedConversationId] = useState<ConversationId>("z");
   const [mockReplyingConversationId, setMockReplyingConversationId] = useState<string | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const [lastViewedConversationSignals, setLastViewedConversationSignals] = useState<Record<string, string>>({
+  const [lastViewedConversationSignals, setLastViewedConversationSignals] = useState<Record<MockConversationId, string>>({
+    assistant: "normal",
     favorite: "normal",
     group: "normal"
   });
-  const [mockConversations, setMockConversations] = useState<Record<string, MockConversation>>(() =>
+  const [mockConversations, setMockConversations] = useState<Record<MockConversationId, MockConversation>>(() =>
     createInitialMockConversations()
   );
   const streamRef = useRef<HTMLDivElement | null>(null);
@@ -243,28 +271,57 @@ export function ChatPage() {
       return;
     }
 
-    const turnBackTimer = window.setTimeout(() => {
-      sendLocationTurnBack();
-    }, 5000);
+    let turnBackTimer: number | undefined;
+    let lieTimer: number | undefined;
+    let omnipresenceTimer: number | undefined;
+    let truthTimer: number | undefined;
 
-    const lieTimer = window.setTimeout(() => {
-      revealLocationLie();
-    }, 10000);
+    const runSequence = () => {
+      turnBackTimer = window.setTimeout(() => {
+        sendLocationTurnBack();
 
-    const truthTimer = window.setTimeout(() => {
-      useAppStore.getState().patchSession({
-        metaMemory: [...useAppStore.getState().session.metaMemory, "定位结尾已进入真相页。"]
-      });
-      enterTruthReveal();
-      navigate("/truth");
-    }, 15000);
+        lieTimer = window.setTimeout(() => {
+          revealLocationLie();
+
+          omnipresenceTimer = window.setTimeout(() => {
+            revealLocationOmnipresence();
+
+            truthTimer = window.setTimeout(() => {
+              useAppStore.getState().patchSession({
+                metaMemory: [...useAppStore.getState().session.metaMemory, "定位结尾已进入真相页。"]
+              });
+              enterTruthReveal();
+              navigate("/truth");
+            }, 3000);
+          }, 2000);
+        }, 3000);
+      }, 3000);
+    };
+
+    runSequence();
 
     return () => {
-      window.clearTimeout(turnBackTimer);
-      window.clearTimeout(lieTimer);
-      window.clearTimeout(truthTimer);
+      if (turnBackTimer) {
+        window.clearTimeout(turnBackTimer);
+      }
+      if (lieTimer) {
+        window.clearTimeout(lieTimer);
+      }
+      if (omnipresenceTimer) {
+        window.clearTimeout(omnipresenceTimer);
+      }
+      if (truthTimer) {
+        window.clearTimeout(truthTimer);
+      }
     };
-  }, [enterTruthReveal, navigate, revealLocationLie, sendLocationTurnBack, session.stage]);
+  }, [
+    enterTruthReveal,
+    navigate,
+    revealLocationLie,
+    revealLocationOmnipresence,
+    sendLocationTurnBack,
+    session.stage
+  ]);
 
   useEffect(() => {
     return () => {
@@ -355,7 +412,7 @@ export function ChatPage() {
   const favoriteHasUnread =
     favoriteCollectionTone !== "normal" && lastViewedConversationSignals.favorite !== favoriteSignal;
   const groupHasUnread = groupThreadTone !== "normal" && lastViewedConversationSignals.group !== groupSignal;
-  const displayConversations = useMemo(() => {
+  const displayConversations = useMemo<Record<MockConversationId, MockConversation>>(() => {
     return {
       ...mockConversations,
       favorite: {
@@ -365,12 +422,12 @@ export function ChatPage() {
         articles: favoriteVariant.articles.map((article) => ({ ...article }))
       }
     };
-  }, [favoriteCollectionTone, mockConversations]);
+  }, [favoriteVariant, mockConversations]);
 
-  const conversationItems = useMemo(() => {
+  const conversationItems = useMemo<ConversationListItem[]>(() => {
     const storyPreviewText = latestMessage?.displayedText ?? "开始新的聊天";
     const storyPreviewTime = latestMessage ? formatTime(latestMessage.timestamp) : "刚刚";
-    const allItems = [
+    const allItems: ConversationListItem[] = [
       {
         id: "z",
         name: "宝宝",
@@ -417,7 +474,7 @@ export function ChatPage() {
     session.stage
   ]);
 
-  const currentConversation = useMemo(() => {
+  const currentConversation = useMemo<ActiveConversation>(() => {
     if (selectedConversationId === "z") {
       return {
         id: "z",
@@ -541,7 +598,12 @@ export function ChatPage() {
       return;
     }
 
-    const currentMockConversation = mockConversations[currentConversation.id];
+    if (selectedConversationId === "z") {
+      return;
+    }
+
+    const currentConversationId = selectedConversationId;
+    const currentMockConversation = mockConversations[currentConversationId];
     if (!currentMockConversation) {
       return;
     }
@@ -556,14 +618,14 @@ export function ChatPage() {
 
     setMockConversations((current) => ({
       ...current,
-      [currentConversation.id]: {
+      [currentConversationId]: {
         ...currentMockConversation,
         messages: [...currentMockConversation.messages, userMessage]
       }
     }));
     setDraft("");
 
-    if (currentConversation.id === "assistant" || currentMockConversation.replyPool.length === 0) {
+    if (currentConversationId === "assistant" || currentMockConversation.replyPool.length === 0) {
       return;
     }
 
@@ -571,11 +633,11 @@ export function ChatPage() {
       currentMockConversation.replyPool[
         currentMockConversation.messages.length % currentMockConversation.replyPool.length
       ];
-    setMockReplyingConversationId(currentConversation.id);
+    setMockReplyingConversationId(currentConversationId);
 
     const timer = window.setTimeout(() => {
       setMockConversations((current) => {
-        const targetConversation = current[currentConversation.id];
+        const targetConversation = current[currentConversationId];
         if (!targetConversation) {
           return current;
         }
@@ -590,13 +652,13 @@ export function ChatPage() {
 
         return {
           ...current,
-          [currentConversation.id]: {
+          [currentConversationId]: {
             ...targetConversation,
             messages: [...targetConversation.messages, replyMessage]
           }
         };
       });
-      setMockReplyingConversationId((current) => (current === currentConversation.id ? null : current));
+      setMockReplyingConversationId((current) => (current === currentConversationId ? null : current));
     }, 520);
 
     pendingTimersRef.current.push(timer);
@@ -862,7 +924,7 @@ export function ChatPage() {
                         <span>{message.displayedText}</span>
                       )}
                     </div>
-                    {currentConversation.isStory && rollbackMode && message.role !== "system" && message.kind !== "pending" ? (
+                    {currentConversation.isStory && rollbackMode && message.kind !== "pending" ? (
                       <button
                         className="desktop-message-rollback"
                         type="button"

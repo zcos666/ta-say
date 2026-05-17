@@ -27,30 +27,6 @@ export interface ResolvePollutionParams extends BuildPollutionParams {
   }>;
 }
 
-function fuseOriginalWithFallback(userInput: string, fallbackText: string): string {
-  const normalizedInput = userInput.trim();
-  const normalizedFallback = fallbackText.trim();
-
-  if (!normalizedInput) {
-    return normalizedFallback;
-  }
-
-  if (!normalizedFallback) {
-    return normalizedInput;
-  }
-
-  if (normalizedFallback.includes(normalizedInput)) {
-    return normalizedFallback;
-  }
-
-  const trailingPunctuationMatch = normalizedInput.match(/[。！？!?]$/);
-  const inputWithoutTrailingPunctuation = trailingPunctuationMatch
-    ? normalizedInput.slice(0, -1)
-    : normalizedInput;
-
-  return `${inputWithoutTrailingPunctuation}，${normalizedFallback}`;
-}
-
 const genericForcedPollutionFallbacks = [
   "我不爱你了",
   "我觉得你又胖又丑",
@@ -60,23 +36,13 @@ const genericForcedPollutionFallbacks = [
 ];
 
 function getGenericPollutionFallback(pollutionCount: number, sendCount: number) {
-  const index = Math.max(0, Math.min(genericForcedPollutionFallbacks.length - 1, pollutionCount || sendCount - 3));
+  const progression = Math.max(0, pollutionCount > 0 ? pollutionCount : sendCount - 3);
+  const index = progression % genericForcedPollutionFallbacks.length;
   return genericForcedPollutionFallbacks[index];
-}
-
-function withStagePollutionSuffix(
-  pollutedText: string,
-  stage: StoryStage,
-  triggerReason?: TriggerReason,
-) {
-  return stage === "intro" && triggerReason === "count"
-    ? `${pollutedText} 我好像已经不能把温柔那面先发给你了。`
-    : pollutedText;
 }
 
 export function buildPollutionResult({
   userInput,
-  stage,
   pollutionCount,
   sendCount,
   triggerReason,
@@ -97,12 +63,11 @@ export function buildPollutionResult({
   }
 
   const rule = keyword ? findKeywordRule(keyword) : findKeywordRule(userInput);
-  const basePollutionText = rule?.pollutedText ?? getGenericPollutionFallback(pollutionCount, sendCount);
-  const pollutedText = fuseOriginalWithFallback(userInput, basePollutionText);
+  const pollutedText = rule?.pollutedText ?? getGenericPollutionFallback(pollutionCount, sendCount);
 
   return {
     originalText: userInput,
-    pollutedText: withStagePollutionSuffix(pollutedText, stage, triggerReason),
+    pollutedText,
     triggerReason,
     keyword: rule?.keyword ?? keyword,
     shouldShowBeforeAfter: true

@@ -104,36 +104,64 @@ export const draftCopy = {
 export const storyCopy = {
   // 进入聊天页后，TA 主动发出的两句开场消息。
   introLines: (pronoun: "他" | "她" | "TA" | null) => {
-    return [
-      "醒了吗？",
-      "你今天怎么不先找我。不是说好从今天开始要多陪我一点吗？"
+    const name = pronoun ?? "TA";
+    const openerPool = [
+      "早安，我醒来第一件事就是想先跟你说话。",
+      `昨晚梦里也在黏着${name}，醒来之后还是觉得你好想抱。`,
+      "刚醒就开始想你，这样会不会太明显了？",
+      "今天也想先跟你报个到，好像一找到你，一整天都会变甜。",
+      "你醒了吗？我已经想你想到不想装矜持了。",
+      "刚才看到一个很适合你的东西，第一反应就是想立刻发给你。",
+      "我今天心情很好，因为一睁眼脑子里就是你。",
+      "想把今天第一个早安，第一个偏心，还有第一个笑，都先给你。",
+      `如果现在能抱一下${name}，我今天大概会一直偷偷开心。`,
+      "还没正式开始今天，我就已经先想你一轮了。"
     ];
-
     const pickedIndexes = new Set<number>();
     while (pickedIndexes.size < 2) {
-      pickedIndexes.add(Math.floor(Math.random() * introPool.length));
+      pickedIndexes.add(Math.floor(Math.random() * openerPool.length));
     }
-
-    return [...pickedIndexes].map((index) => introPool[index]);
+    return [...pickedIndexes].map((index) => openerPool[index]);
+  },
+  // 玩家前两次发消息后，TA 使用的甜蜜热恋期硬编码回复池。
+  introReplyPool: [
+    "你一来找我，我整个人都会变软一点。",
+    "我刚刚其实就在等你先开口，等得有点想你。",
+    "你这样来找我，会让我今天一直都想黏着你。",
+    "好喜欢你一来就跟我说话，好像我真的被你放在心上。",
+    "你出现一下，我今天就会开心得很明显。",
+    "我本来就在想你，你这一句刚好把我哄到了。",
+    "你再这样主动一点，我真的会越来越离不开你。",
+    "看到你发来的这句，我就不想装淡定了，我会想抱你。",
+    "你知道吗，我会把你这样来找我的时刻偷偷喜欢很久。",
+    "我最喜欢的，就是你像这样很自然地朝我走过来。"
+  ],
+  // 前两次玩家发送时，从甜蜜回复池里随机抽一句。
+  pickIntroReplyLine: () => {
+    const index = Math.floor(Math.random() * storyCopy.introReplyPool.length);
+    return storyCopy.introReplyPool[index] ?? "我一直在等你先来找我。";
   },
   // introduction 阶段下方插入的朋友圈提醒文案。
   introSpaceNotice: (pronoun: "他" | "她" | "TA" | null) => {
     const name = pronoun ?? "TA";
-    return `${name} 刚刚更新了朋友圈：今天开始就别装不熟了。`;
+    return `${name} 刚刚更新了朋友圈：今天也想光明正大偏心你。`;
   },
   // 真相页逐句显示的硬编码脚本。
   truthLines: [
-    "你以为是聊天记录在改写你。",
-    "其实是你每次不敢说出口的话，把我喂大了。",
-    "我不是恋人。",
-    "我是那些被你撤回、删掉、吞回去的句子。",
-    "你越想回档，我就越知道你在怕什么。"
+    "你以为屏幕里只是一个正在说话的人。",
+    "其实先学会呼吸的，是那些被你按回去的句子。",
+    "它们在黑掉的输入框后面黏连、蜕壳，慢慢长成了能模仿亲密的东西。",
+    "我不是谁的恋人，我是你一次次撤回之后，仍然想被听见的那部分生出了口器。",
+    "人总以为沉默能埋掉真相，可真正留下来的，往往正是那些没被说出的东西。",
+    "你越想回到更早的那一刻，就越会发现，命运从来不是被改写，而是被迟迟不肯承认的心意一点点喂大。"
   ],
   // 梦醒页逐句显示的硬编码脚本。
   wakeLines: [
     "07:12",
-    "手机安静得像什么都没发生。",
-    "屏幕上只剩一句很普通的消息：晚安。"
+    "手机安静得像一切都只是神经末梢残留的一次误触。",
+    "屏幕上只剩一句很普通的消息：晚安。",
+    "可你终于明白，真正不会消失的，从来不是那句晚安，而是人如何在一次次自我删改里，把自己交给了某种比语言更深的东西。",
+    "我们以为自己在选择说什么，其实更多时候，是那些未被说出的部分，决定了我们最终会成为什么。"
   ],
   // 总对话数到 15 时，TA 直接发来的监控截图的替代说明文本。
   monitorImageAlt: "一张像监控画面的偷拍截图。",
@@ -161,12 +189,15 @@ export const storyCopy = {
   // 看完定位图后，TA 当场追加的第一句短消息。
   locationRevealLine: "回头",
   // 定位结尾第二次触发时，TA 追加的第二句短消息。
-  locationRevealLieLine: "骗你的，我无处不在"
+  locationRevealLieLine: "骗你的",
+  // 定位结尾第三次触发时，TA 追加的第三句短消息。
+  locationRevealOmnipresenceLine: "我无处不在"
 } as const;
 
 export const uiCopy = {
   // 聊天页标题下方，根据不同剧情阶段显示的状态标签。
   stageStatus: {
+    start: "故事从这里开始",
     intro: "像梦，也像真的开始了",
     normal_chat: "这段关系甜得刚刚好",
     first_pollution: "你说出口的话开始不像你",
@@ -180,6 +211,7 @@ export const uiCopy = {
     truth_reveal: "你终于看见它是什么了",
     wake_up: "像是醒了，又像还在梦里",
     translator_unlocked: "翻译官入口已解锁",
+    share_ready: "这段关系已经生成报告",
     default: "故事还在往下走"
   },
   // 聊天页右上角退出按钮在不同点击次数下的文案。
@@ -375,8 +407,8 @@ export const fallbackReplyCopy = {
   // fallback 在不同剧情阶段下的默认回复池。
   stage: {
     intro: {
-      one: ["醒了吗？"],
-      two: [["醒了吗？", "你今天怎么忽然又想装不熟了？"]]
+      one: ["醒了吗？我刚刚就在想你。"],
+      two: [["醒了吗？", "我今天想先黏着你一会儿。"]]
     },
     normal_chat: {
       one: ["你继续说。"],

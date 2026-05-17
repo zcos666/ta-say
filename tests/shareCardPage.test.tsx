@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import ShareCardPage from "../src/pages/ShareCardPage";
 import { useAppStore } from "../src/app/store/useAppStore";
@@ -59,7 +60,11 @@ describe("ShareCardPage", () => {
 
     const user = userEvent.setup();
 
-    render(<ShareCardPage />);
+    render(
+      <MemoryRouter>
+        <ShareCardPage />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByRole("button", { name: "导出 PNG" }));
     await screen.findByText("图片已生成并开始下载。");

@@ -26,6 +26,19 @@ describe("evaluateTriggers", () => {
     expect(result.shouldPollute).toBe(true);
   });
 
+  it("五次强制污染结束后，普通发送不会再次自动进入脚本污染", () => {
+    const session = createEmptySession();
+    session.stage = "first_pollution";
+    session.sendCount = 8;
+    session.pollutionCount = 5;
+    session.forcedPollutionRemaining = 0;
+
+    const result = evaluateTriggers(session, "量子云海正在下雨", 9);
+
+    expect(result.triggerReason).toBeUndefined();
+    expect(result.shouldPollute).toBe(false);
+  });
+
   it("空间和退出累计状态不会作为常驻事件反复传给模型", () => {
     const session = createEmptySession();
     session.spaceVisitCount = 2;
@@ -37,10 +50,10 @@ describe("evaluateTriggers", () => {
     expect(result.events).not.toContain("exit_blocked");
   });
 
-  it("总对话数达到 20 时触发定位结尾事件", () => {
+  it("总对话数达到 28 时触发定位结尾事件", () => {
     const session = createEmptySession();
     session.stage = "normal_chat";
-    session.chatHistory = Array.from({ length: 19 }, (_, index) =>
+    session.chatHistory = Array.from({ length: 27 }, (_, index) =>
       createChatMessage(index % 2 === 0 ? "ta" : "user", `message-${index + 1}`)
     );
 

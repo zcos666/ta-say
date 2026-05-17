@@ -27,7 +27,7 @@ interface ChatCompletionResponse {
 
 interface ChatCompletionStreamChoice {
   delta?: {
-    content?: string | Array<{ type?: string; text?: string }>;
+    content?: ChatMessageContent;
   };
 }
 
@@ -353,7 +353,7 @@ async function requestChatCompletion(
   }
 }
 
-function extractStreamDeltaContent(content: ChatCompletionStreamChoice["delta"] extends { content?: infer T } ? T : never) {
+function extractStreamDeltaContent(content: ChatMessageContent): string {
   if (typeof content === "string") {
     return content;
   }

@@ -14,26 +14,13 @@ const styles: Record<string, CSSProperties> = {
     color: "#f4f4f4",
   },
   shell: {
-    width: "min(100%, 980px)",
+    width: "min(100%, 1100px)",
     display: "grid",
-    gap: 20,
-  },
-  title: {
-    margin: 0,
-    fontSize: "clamp(28px, 4vw, 44px)",
-    letterSpacing: "-0.03em",
-  },
-  subtitle: {
-    margin: 0,
-    color: "rgba(244, 244, 244, 0.74)",
-    lineHeight: 1.7,
+    gap: 16,
   },
   card: {
-    borderRadius: 24,
-    padding: 20,
-    background: "rgba(255, 255, 255, 0.04)",
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
+    display: "grid",
+    gap: 16,
   },
   locationFrame: {
     position: "relative",
@@ -56,26 +43,6 @@ const styles: Record<string, CSSProperties> = {
     inset: 0,
     background: "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(14, 14, 18, 0.14))",
     pointerEvents: "none",
-  },
-  bottomPanel: {
-    display: "grid",
-    gap: 8,
-    marginTop: 16,
-    display: "grid",
-    padding: 16,
-    borderRadius: 18,
-    background: "rgba(5, 5, 5, 0.52)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  bottomTitle: {
-    margin: 0,
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  bottomCopy: {
-    margin: 0,
-    color: "rgba(244, 244, 244, 0.72)",
-    lineHeight: 1.7,
   },
   buttonRow: {
     display: "flex",
@@ -115,21 +82,10 @@ export function LocationPage() {
     <main style={styles.page}>
       <section style={styles.shell}>
         <div style={styles.card}>
-          <h1 style={styles.title}>你在哪？</h1>
-          <p style={styles.subtitle}>
-            这是 TA 直接发来的定位截图。现在会直接读取你放进项目里的真实图片，而不是之前那张占位视觉稿。
-          </p>
-        </div>
-
-        <section style={styles.locationFrame} aria-label="定位图">
-          <img src={locationImageUrl} alt="TA 发来的定位截图" style={styles.locationImage} />
-          <div style={styles.imageShade} />
-        </section>
-        <div style={styles.bottomPanel}>
-          <p style={styles.bottomTitle}>距离：0.00 km</p>
-          <p style={styles.bottomCopy}>
-            这次展示的是你提供的真实定位截图。你和 TA 的位置已经几乎贴在一起了。
-          </p>
+          <section style={styles.locationFrame} aria-label="定位图">
+            <img src={locationImageUrl} alt="TA 发来的定位截图" style={styles.locationImage} />
+            <div style={styles.imageShade} />
+          </section>
           <div style={styles.buttonRow}>
             <button
               type="button"

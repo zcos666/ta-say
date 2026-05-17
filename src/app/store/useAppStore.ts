@@ -132,6 +132,7 @@ interface AppStore {
   completeLocationReveal: () => void;
   sendLocationTurnBack: () => void;
   revealLocationLie: () => void;
+  revealLocationOmnipresence: () => void;
   visitSpace: () => void;
   exitAttempt: () => Promise<void>;
   enterTruthReveal: () => void;
@@ -146,7 +147,7 @@ interface AppStore {
 }
 
 function getRandomTaLineDelayMs() {
-  return 280 + Math.floor(Math.random() * 341);
+  return 1000 + Math.floor(Math.random() * 1001);
 }
 
 async function waitForTaLineDelay() {
@@ -349,7 +350,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     const previousTrimmed = previousValue.trim();
     const nextTrimmed = nextValue.trim();
 
-    if (!nextTrimmed) {
+    if (!nextTrimmed && !options.isDeleting) {
       resetPendingDeletedDraft();
       resetDraftPauseState();
       return;
@@ -366,7 +367,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         draftEditCount: currentDraftEditCount,
         draftPauseLevel: 0
       });
-      scheduleDraftPauseHints();
+      if (nextTrimmed) {
+        scheduleDraftPauseHints();
+      } else {
+        clearDraftPauseTimers();
+      }
     }
 
     if (!options.isDeleting) {
@@ -465,7 +470,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     const shouldRecordHeavyEditing = currentDraftEditCount >= 2;
 
     const triggerEvaluation = evaluateTriggers(session, userInput, nextSendCount);
-    const hasShownMonitorImage = session.metaMemory.includes(storyCopy.monitorImageMetaMemory);
+    const hasShownMonitorImage = session.chatHistory.some((message) => message.kind === "monitor_image");
     const shouldSendMonitorImage = nextTotalConversationCount >= 15 && !hasShownMonitorImage;
     const pollution = await resolvePollutionResult({
       userInput,
@@ -589,16 +594,18 @@ export const useAppStore = create<AppStore>((set, get) => {
     persistSession(nextSession);
 
     if (shouldSendMonitorImage) {
-      const imageSession = {
-        ...nextSession,
-        chatHistory: [...nextSession.chatHistory, createMonitorImageMessage()],
-        metaMemory: [...nextSession.metaMemory, storyCopy.monitorImageMetaMemory]
-      };
-
-      set({ session: imageSession, isReplying: false, isTaTyping: true });
-      persistSession(imageSession);
-
       void (async () => {
+        await waitForTaLineDelay();
+
+        const imageSession = {
+          ...get().session,
+          chatHistory: [...get().session.chatHistory, createMonitorImageMessage()],
+          metaMemory: [...get().session.metaMemory, storyCopy.monitorImageMetaMemory]
+        };
+
+        set({ session: imageSession, isReplying: false, isTaTyping: true });
+        persistSession(imageSession);
+
         await streamTaReplyLines([storyCopy.monitorImageLine], "glitch", {
           waitBeforeFirstLine: true
         });
@@ -607,15 +614,19 @@ export const useAppStore = create<AppStore>((set, get) => {
     }
 
     if (triggerEvaluation.events.includes("location_ping")) {
-      const finalSession = {
-        ...nextSession,
-        chatHistory: [...nextSession.chatHistory, createLocationNotice()],
-        metaMemory: [...nextSession.metaMemory, "第二十次对话后，最后一句被改成了“你在哪？”。"]
-      };
+      void (async () => {
+        await waitForTaLineDelay();
 
-      set({ session: finalSession, isReplying: false, isTaTyping: false });
-      persistSession(finalSession);
-      flushPendingQueue();
+        const finalSession = {
+          ...get().session,
+          chatHistory: [...get().session.chatHistory, createLocationNotice()],
+          metaMemory: [...get().session.metaMemory, "第二十八次对话后，最后一句被改成了“你在哪？”。"]
+        };
+
+        set({ session: finalSession, isReplying: false, isTaTyping: false });
+        persistSession(finalSession);
+        flushPendingQueue();
+      })();
       return;
     }
 
@@ -641,7 +652,9 @@ export const useAppStore = create<AppStore>((set, get) => {
       persistSession(sessionWithNotice);
     }
 
-    await streamTaReplyLines(replyLines, replyKind);
+    await streamTaReplyLines(replyLines, replyKind, {
+      waitBeforeFirstLine: true
+    });
   },
 
   rollbackToMessage: (messageId) => {
@@ -669,10 +682,19 @@ export const useAppStore = create<AppStore>((set, get) => {
 
   completeLocationReveal: () => {
     set((state) => {
+      const clearedMetaMemory = state.session.metaMemory.filter(
+        (entry) =>
+          ![
+            "定位结尾第一句已触发。",
+            "定位结尾第二句已触发。",
+            "定位结尾第三句已触发。",
+            "定位结尾已进入真相页。"
+          ].includes(entry)
+      );
       const nextSession = {
         ...state.session,
         stage: "location_aftermath" as const,
-        metaMemory: [...state.session.metaMemory, "看完定位图后，定位页已被关闭。"]
+        metaMemory: [...clearedMetaMemory, "看完定位图后，定位页已被关闭。"]
       };
 
       persistSession(nextSession);
@@ -713,6 +735,26 @@ export const useAppStore = create<AppStore>((set, get) => {
           createChatMessage("ta", storyCopy.locationRevealLieLine, { kind: "glitch" })
         ],
         metaMemory: [...state.session.metaMemory, "定位结尾第二句已触发。"]
+      };
+
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
+  },
+
+  revealLocationOmnipresence: () => {
+    set((state) => {
+      if (state.session.metaMemory.includes("定位结尾第三句已触发。")) {
+        return state;
+      }
+
+      const nextSession = {
+        ...state.session,
+        chatHistory: [
+          ...state.session.chatHistory,
+          createChatMessage("ta", storyCopy.locationRevealOmnipresenceLine, { kind: "glitch" })
+        ],
+        metaMemory: [...state.session.metaMemory, "定位结尾第三句已触发。"]
       };
 
       persistSession(nextSession);

@@ -46,8 +46,8 @@ describe("triggerEngine PRD rules", () => {
     expect(result.shouldPollute).toBe(true);
   });
 
-  it("meta_break 只在总对话条数达到 20 时触发", () => {
-    const almostDoneHistory = Array.from({ length: 18 }, (_, index) =>
+  it("总对话数达到 20 时先触发定位结尾而不是直接进入 meta_break", () => {
+    const almostDoneHistory = Array.from({ length: 19 }, (_, index) =>
       createChatMessage(index % 2 === 0 ? "user" : "ta", `msg-${index + 1}`)
     );
     const session = createSession({
@@ -59,7 +59,9 @@ describe("triggerEngine PRD rules", () => {
 
     const result = evaluateTriggers(session, "最后一句", 10);
 
-    expect(result.enterMetaBreak).toBe(true);
+    expect(result.enterMetaBreak).toBe(false);
+    expect(result.enterLocationReveal).toBe(true);
+    expect(result.events).toContain("location_ping");
   });
 
   it("读档、空间和退出次数本身不会触发 meta_break", () => {

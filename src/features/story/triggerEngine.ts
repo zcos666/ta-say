@@ -21,13 +21,12 @@ export function evaluateTriggers(
   const events: StoryEvent[] = [];
   const nextTotalConversationCount = countNarrativeConversationMessages(session.chatHistory) + 1;
   const enterLocationReveal =
-    nextTotalConversationCount >= 20 &&
+    nextTotalConversationCount >= 28 &&
     session.stage !== "location_reveal" &&
     session.stage !== "location_aftermath" &&
     session.stage !== "truth_reveal" &&
     session.stage !== "wake_up";
   const shouldForceContinuousPollution = nextSendCount === 3 || session.forcedPollutionRemaining > 0;
-  const shouldPartiallyPollute = session.pollutionCount >= 5 && nextSendCount % 2 === 0;
   const triggerReason = shouldForceContinuousPollution
     ? nextSendCount === 3
       ? "count"
@@ -38,16 +37,14 @@ export function evaluateTriggers(
       ? "timed"
       : keywordRule
         ? "keyword"
-        : shouldPartiallyPollute
-          ? "scripted"
-          : undefined;
+        : undefined;
 
   const shouldPollute = Boolean(triggerReason);
   if (enterLocationReveal) {
     events.push("location_ping");
   }
 
-  const enterMetaBreak = nextTotalConversationCount >= 20;
+  const enterMetaBreak = nextTotalConversationCount >= 28;
 
   return {
     shouldPollute,

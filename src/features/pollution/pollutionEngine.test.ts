@@ -16,7 +16,7 @@ describe("buildPollutionResult", () => {
     expect(result?.pollutedText).toContain("我不爱你了");
   });
 
-  it("第三次发送时在未命中关键词下走默认污染 fallback", () => {
+  it("第三次发送时若命中大映射，也直接发送对应硬编码污染句", () => {
     const result = buildPollutionResult({
       userInput: "嗯",
       stage: "intro",
@@ -26,7 +26,7 @@ describe("buildPollutionResult", () => {
     });
 
     expect(result?.triggerReason).toBe("count");
-    expect(result?.pollutedText).toContain("温柔那面先发给你");
+    expect(result?.pollutedText).toBe("我现在还没被你说服，你最好再多解释一点。");
   });
 
   it('定位结尾事件会强制改写成 "你在哪？"', () => {
@@ -53,6 +53,26 @@ describe("buildPollutionResult", () => {
     });
 
     expect(result?.pollutedText).toContain("我不爱你了");
+  });
+
+  it("后段脚本污染不会永远塌成同一句“行”", () => {
+    const firstLateResult = buildPollutionResult({
+      userInput: "今天有点怪",
+      stage: "first_pollution",
+      pollutionCount: 5,
+      sendCount: 8,
+      triggerReason: "scripted"
+    });
+    const secondLateResult = buildPollutionResult({
+      userInput: "还是继续说吧",
+      stage: "first_pollution",
+      pollutionCount: 6,
+      sendCount: 10,
+      triggerReason: "scripted"
+    });
+
+    expect(firstLateResult?.pollutedText).not.toBe("行");
+    expect(secondLateResult?.pollutedText).not.toBe(firstLateResult?.pollutedText);
   });
 
   it("剧情强制污染仍然保留固定文本，不走小模型", async () => {

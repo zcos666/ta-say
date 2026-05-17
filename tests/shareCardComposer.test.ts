@@ -16,6 +16,7 @@ function createSession(overrides: Partial<SessionState> = {}): SessionState {
     deletedDraftCount: 1,
     loadCount: 0,
     sendCount: 0,
+    forcedPollutionRemaining: 0,
     spaceVisitCount: 0,
     exitClickCount: 0,
     activeTimedPollution: false,
