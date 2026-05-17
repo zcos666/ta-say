@@ -1,4 +1,4 @@
-import type { SessionState } from "../../types/session";
+import { isLlmContextMessage, type SessionState } from "../../types/session";
 import type { TaReplyRequest, TaReplyResponse } from "../../types/api";
 import type { StoryEvent, TriggerReason } from "../../types/story";
 import { generateTaReply, streamTaReply } from "../../services/api/llmClient";
@@ -15,6 +15,31 @@ interface ReplyContext {
 
 function pickReplyLineCount(): 1 | 2 {
   return Math.random() < 0.5 ? 1 : 2;
+}
+
+function buildRecentMessages(
+  session: SessionState,
+  originalInput?: string,
+  pollutedInput?: string,
+) {
+  const recentMessages = session.chatHistory
+    .filter(isLlmContextMessage)
+    .slice(-8)
+    .map((message) => ({
+      role: message.role,
+      text: message.role === "user" ? message.originalText?.trim() || message.displayedText : message.displayedText
+    }));
+
+  const lastMessage = recentMessages[recentMessages.length - 1];
+  const shouldDropDuplicatedLatestUserMessage =
+    lastMessage?.role === "user" &&
+    [pollutedInput?.trim(), originalInput?.trim()].filter(Boolean).includes(lastMessage.text.trim());
+
+  if (shouldDropDuplicatedLatestUserMessage) {
+    recentMessages.pop();
+  }
+
+  return recentMessages.slice(-6);
 }
 
 function createReplyRequest({
@@ -39,10 +64,7 @@ function createReplyRequest({
     taPronoun: session.taPronoun,
     metaMemory: session.metaMemory,
     desiredReplyLineCount,
-    recentMessages: session.chatHistory.slice(-6).map((message) => ({
-      role: message.role,
-      text: message.displayedText
-    }))
+    recentMessages: buildRecentMessages(session, originalInput, pollutedInput)
   };
 }
 

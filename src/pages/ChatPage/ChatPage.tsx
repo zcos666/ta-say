@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store/useAppStore";
 import { exitCopy, mockChatCopy, rollbackCopy } from "../../config/hardcodedCopy";
 import { getStageStatus } from "../../features/story/stageConfig";
-import type { ChatMessage } from "../../types/session";
+import { countNarrativeConversationMessages, type ChatMessage } from "../../types/session";
 
 function formatTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("zh-CN", {
@@ -128,6 +128,54 @@ function getChatDisturbanceLevel(stage: string) {
   }
 }
 
+function getFavoriteCollectionTone(stage: string, totalConversationCount: number) {
+  if (totalConversationCount >= 15) {
+    return "uncanny" as const;
+  }
+
+  switch (stage) {
+    case "save_loaded_twice":
+    case "location_reveal":
+    case "location_aftermath":
+    case "meta_break":
+    case "truth_reveal":
+    case "wake_up":
+    case "translator_unlocked":
+      return "uncanny" as const;
+    case "first_pollution":
+    case "draft_exposed":
+    case "time_pollution":
+    case "save_loaded_once":
+      return "uneasy" as const;
+    default:
+      return "normal" as const;
+  }
+}
+
+function getWorkGroupTone(stage: string, totalConversationCount: number) {
+  if (totalConversationCount >= 15) {
+    return "uncanny" as const;
+  }
+
+  switch (stage) {
+    case "save_loaded_twice":
+    case "location_reveal":
+    case "location_aftermath":
+    case "meta_break":
+    case "truth_reveal":
+    case "wake_up":
+    case "translator_unlocked":
+      return "uncanny" as const;
+    case "first_pollution":
+    case "draft_exposed":
+    case "time_pollution":
+    case "save_loaded_once":
+      return "uneasy" as const;
+    default:
+      return totalConversationCount >= 9 ? ("uneasy" as const) : ("normal" as const);
+  }
+}
+
 function normalizeHauntingText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -146,6 +194,7 @@ export function ChatPage() {
   const rollbackToMessage = useAppStore((state) => state.rollbackToMessage);
   const visitSpace = useAppStore((state) => state.visitSpace);
   const exitAttempt = useAppStore((state) => state.exitAttempt);
+  const sendLocationTurnBack = useAppStore((state) => state.sendLocationTurnBack);
   const enterTruthReveal = useAppStore((state) => state.enterTruthReveal);
   const revealLocationLie = useAppStore((state) => state.revealLocationLie);
   const getSpaceLabel = useAppStore((state) => state.getSpaceLabel);
@@ -156,17 +205,23 @@ export function ChatPage() {
   const [selectedConversationId, setSelectedConversationId] = useState("z");
   const [mockReplyingConversationId, setMockReplyingConversationId] = useState<string | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [lastViewedConversationSignals, setLastViewedConversationSignals] = useState<Record<string, string>>({
+    favorite: "normal",
+    group: "normal"
+  });
   const [mockConversations, setMockConversations] = useState<Record<string, MockConversation>>(() =>
     createInitialMockConversations()
   );
   const streamRef = useRef<HTMLDivElement | null>(null);
   const pendingTimersRef = useRef<number[]>([]);
   const toastTimerRef = useRef<number | null>(null);
-  const lastToastMessageIdRef = useRef<string | null>(null);
+  const seenSystemNoticeIdsRef = useRef<Set<string>>(new Set());
+  const hasInitializedSystemNoticeHistoryRef = useRef(false);
   const [systemToast, setSystemToast] = useState<ChatMessage | null>(null);
   const [rollbackFlashNonce, setRollbackFlashNonce] = useState(0);
   const [rollbackFlashVisible, setRollbackFlashVisible] = useState(false);
   const endingTransitionActive = session.stage === "location_aftermath";
+  const totalConversationCount = countNarrativeConversationMessages(session.chatHistory);
 
   useEffect(() => {
     if (!session.taPronoun) {
@@ -188,9 +243,13 @@ export function ChatPage() {
       return;
     }
 
+    const turnBackTimer = window.setTimeout(() => {
+      sendLocationTurnBack();
+    }, 5000);
+
     const lieTimer = window.setTimeout(() => {
       revealLocationLie();
-    }, 5000);
+    }, 10000);
 
     const truthTimer = window.setTimeout(() => {
       useAppStore.getState().patchSession({
@@ -198,13 +257,14 @@ export function ChatPage() {
       });
       enterTruthReveal();
       navigate("/truth");
-    }, 10000);
+    }, 15000);
 
     return () => {
+      window.clearTimeout(turnBackTimer);
       window.clearTimeout(lieTimer);
       window.clearTimeout(truthTimer);
     };
-  }, [enterTruthReveal, navigate, revealLocationLie, session.stage]);
+  }, [enterTruthReveal, navigate, revealLocationLie, sendLocationTurnBack, session.stage]);
 
   useEffect(() => {
     return () => {
@@ -228,32 +288,84 @@ export function ChatPage() {
       : session.exitClickCount >= 1
         ? exitCopy.dialogBodies.warning
         : exitCopy.dialogBodies.default;
+  const favoriteCollectionTone = getFavoriteCollectionTone(session.stage, totalConversationCount);
+  const groupThreadTone = getWorkGroupTone(session.stage, totalConversationCount);
   const disturbanceLevel = getChatDisturbanceLevel(session.stage);
   const hauntingLines = [
     ...session.deletedDrafts.slice(-2).map(normalizeHauntingText),
     session.hardestSentence ? normalizeHauntingText(session.hardestSentence) : "",
-    latestMessage?.role === "user" ? normalizeHauntingText(latestMessage.displayedText) : "",
   ].filter(Boolean);
   const primaryHauntingLine = hauntingLines[0] || "";
-  const disturbanceCopy =
-    primaryHauntingLine ||
-    draftWhisper ||
-    (disturbanceLevel >= 3
-      ? "它不只是停在输入框后面，它在等你把真正那句打出来。"
-      : disturbanceLevel === 2
-        ? "这块区域开始记住你删掉的版本。"
-        : disturbanceLevel === 1
-          ? "输入框后面有东西在跟着你的停顿。"
-          : "");
-  const composerWarning =
-    draftWhisper ||
-    (disturbanceLevel >= 3
-      ? "异常增强：输入框后方出现持续残影。"
-      : disturbanceLevel === 2
-        ? "异常提示：删改痕迹正在被保留。"
-        : disturbanceLevel === 1
-          ? "异常提示：这里开始变得不太对。"
-          : "");
+  const disturbanceCopy = draftWhisper || primaryHauntingLine;
+  const composerWarning = draftWhisper || "";
+  const favoriteVariant = mockChatCopy.favorite.variants[favoriteCollectionTone];
+  const groupVariant = mockChatCopy.group.variants[groupThreadTone];
+  const favoriteSignal = `${favoriteCollectionTone}:${favoriteVariant.articles.map((article) => article.id).join("|")}`;
+  const groupSignal = `${groupThreadTone}:${groupVariant.messages.map((message) => message.id).join("|")}`;
+
+  useEffect(() => {
+    setMockConversations((current) => {
+      const currentGroup = current.group;
+      const currentSignal = [
+        currentGroup.subtitle,
+        currentGroup.avatarLabel,
+        currentGroup.messages.map((message) => message.id).join("|"),
+        currentGroup.replyPool.join("|")
+      ].join("::");
+      const nextSignal = [
+        groupVariant.subtitle,
+        groupVariant.avatarLabel,
+        groupVariant.messages.map((message) => message.id).join("|"),
+        groupVariant.replyPool.join("|")
+      ].join("::");
+
+      if (currentSignal === nextSignal) {
+        return current;
+      }
+
+      return {
+        ...current,
+        group: {
+          ...currentGroup,
+          subtitle: groupVariant.subtitle,
+          avatarLabel: groupVariant.avatarLabel,
+          messages: groupVariant.messages.map((message) =>
+            createMockMessage(message.id, message.role, message.displayedText, message.hour, message.minute)
+          ),
+          replyPool: [...groupVariant.replyPool]
+        }
+      };
+    });
+  }, [groupVariant]);
+
+  useEffect(() => {
+    if (selectedConversationId === "favorite") {
+      setLastViewedConversationSignals((current) =>
+        current.favorite === favoriteSignal ? current : { ...current, favorite: favoriteSignal }
+      );
+    }
+
+    if (selectedConversationId === "group") {
+      setLastViewedConversationSignals((current) =>
+        current.group === groupSignal ? current : { ...current, group: groupSignal }
+      );
+    }
+  }, [favoriteSignal, groupSignal, selectedConversationId]);
+
+  const favoriteHasUnread =
+    favoriteCollectionTone !== "normal" && lastViewedConversationSignals.favorite !== favoriteSignal;
+  const groupHasUnread = groupThreadTone !== "normal" && lastViewedConversationSignals.group !== groupSignal;
+  const displayConversations = useMemo(() => {
+    return {
+      ...mockConversations,
+      favorite: {
+        ...mockConversations.favorite,
+        subtitle: favoriteVariant.subtitle,
+        avatarLabel: favoriteVariant.avatarLabel,
+        articles: favoriteVariant.articles.map((article) => ({ ...article }))
+      }
+    };
+  }, [favoriteCollectionTone, mockConversations]);
 
   const conversationItems = useMemo(() => {
     const storyPreviewText = latestMessage?.displayedText ?? "开始新的聊天";
@@ -265,9 +377,10 @@ export function ChatPage() {
         subtitle: getStageStatus(session.stage),
         avatarLabel: "宝",
         preview: storyPreviewText,
-        time: storyPreviewTime
+        time: storyPreviewTime,
+        hasUnread: false
       },
-      ...Object.values(mockConversations).map((conversation) => {
+      ...Object.values(displayConversations).map((conversation) => {
         const lastMessage = conversation.messages[conversation.messages.length - 1];
         const articlePreview = conversation.view === "articles" ? conversation.articles?.[0]?.title : undefined;
         return {
@@ -276,7 +389,13 @@ export function ChatPage() {
           subtitle: conversation.subtitle,
           avatarLabel: conversation.avatarLabel,
           preview: articlePreview ?? lastMessage?.displayedText ?? "点开看看有没有新消息",
-          time: lastMessage ? formatTime(lastMessage.timestamp) : "刚刚"
+          time: lastMessage ? formatTime(lastMessage.timestamp) : "刚刚",
+          hasUnread:
+            conversation.id === "favorite"
+              ? favoriteHasUnread
+              : conversation.id === "group"
+                ? groupHasUnread
+                : false
         };
       })
     ];
@@ -288,7 +407,15 @@ export function ChatPage() {
       const haystack = `${item.name} ${item.preview} ${item.subtitle}`.toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [getStageStatus, latestMessage, mockConversations, searchKeyword, session.stage]);
+  }, [
+    displayConversations,
+    favoriteHasUnread,
+    getStageStatus,
+    groupHasUnread,
+    latestMessage,
+    searchKeyword,
+    session.stage
+  ]);
 
   const currentConversation = useMemo(() => {
     if (selectedConversationId === "z") {
@@ -304,7 +431,7 @@ export function ChatPage() {
       };
     }
 
-    const mockConversation = mockConversations[selectedConversationId];
+    const mockConversation = displayConversations[selectedConversationId];
     if (mockConversation) {
       return {
         ...mockConversation,
@@ -322,8 +449,11 @@ export function ChatPage() {
       articles: [],
       messages: session.chatHistory
     };
-  }, [getStageStatus, mockConversations, pendingUserMessages, selectedConversationId, session.chatHistory, session.stage]);
-  const showComposerDisturbance = currentConversation.id === "z" && (disturbanceLevel > 0 || Boolean(draftWhisper));
+  }, [displayConversations, getStageStatus, pendingUserMessages, selectedConversationId, session.chatHistory, session.stage]);
+  const showComposerDisturbance = currentConversation.id === "z" && Boolean(draftWhisper);
+  const showHauntingPresence =
+    currentConversation.id === "z" &&
+    (Boolean(draftWhisper) || (disturbanceLevel >= 3 && session.deletedDrafts.length > 0));
 
   useEffect(() => {
     const node = streamRef.current;
@@ -333,7 +463,11 @@ export function ChatPage() {
     node.scrollTop = node.scrollHeight;
   }, [currentConversation.messages, selectedConversationId]);
 
-  function showSystemToast(displayedText: string, kind: ChatMessage["kind"] = "warning") {
+  function showSystemToast(
+    sourceMessageId: string,
+    displayedText: string,
+    kind: ChatMessage["kind"] = "warning"
+  ) {
     const nextToast: ChatMessage = {
       id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       role: "system",
@@ -342,7 +476,7 @@ export function ChatPage() {
       timestamp: Date.now()
     };
 
-    lastToastMessageIdRef.current = nextToast.id;
+    seenSystemNoticeIdsRef.current.add(sourceMessageId);
     setSystemToast(nextToast);
 
     if (toastTimerRef.current) {
@@ -356,9 +490,19 @@ export function ChatPage() {
   }
 
   useEffect(() => {
+    if (!hasInitializedSystemNoticeHistoryRef.current) {
+      session.chatHistory.forEach((message) => {
+        if (message.role === "system" && (message.kind === "warning" || message.kind === "glitch")) {
+          seenSystemNoticeIdsRef.current.add(message.id);
+        }
+      });
+      hasInitializedSystemNoticeHistoryRef.current = true;
+    }
+  }, [session.chatHistory]);
+
+  useEffect(() => {
     if (currentConversation.id !== "z") {
       setSystemToast(null);
-      lastToastMessageIdRef.current = null;
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;
@@ -370,11 +514,11 @@ export function ChatPage() {
       .reverse()
       .find((message) => message.role === "system" && (message.kind === "warning" || message.kind === "glitch"));
 
-    if (!latestSystemNotice || lastToastMessageIdRef.current === latestSystemNotice.id) {
+    if (!latestSystemNotice || seenSystemNoticeIdsRef.current.has(latestSystemNotice.id)) {
       return;
     }
 
-    showSystemToast(latestSystemNotice.displayedText, latestSystemNotice.kind);
+    showSystemToast(latestSystemNotice.id, latestSystemNotice.displayedText, latestSystemNotice.kind);
   }, [currentConversation.id, currentConversation.messages]);
 
   function handleSend() {
@@ -518,7 +662,10 @@ export function ChatPage() {
                 <span className="desktop-conversation-body">
                   <span className="desktop-conversation-row">
                     <strong>{item.name}</strong>
-                    <time>{item.time}</time>
+                    <span className="desktop-conversation-meta">
+                      {item.hasUnread ? <span className="desktop-conversation-unread-dot" aria-label="有新消息" /> : null}
+                      <time>{item.time}</time>
+                    </span>
                   </span>
                   <span className="desktop-conversation-subtitle">{item.subtitle}</span>
                   <span className="desktop-conversation-preview">{item.preview}</span>
@@ -536,7 +683,7 @@ export function ChatPage() {
               onAnimationEnd={() => setRollbackFlashVisible(false)}
             />
           ) : null}
-          {currentConversation.id === "z" && disturbanceLevel > 0 ? (
+          {showHauntingPresence ? (
             <div className={`desktop-haunting-presence disturbance-${disturbanceLevel}`} aria-hidden="true">
               <div className="desktop-haunting-shadow" />
               <div className="desktop-haunting-copy">
@@ -571,7 +718,11 @@ export function ChatPage() {
                     if (rollbackDisabled) {
                       setRollbackFlashVisible(true);
                       setRollbackFlashNonce((current) => current + 1);
-                      showSystemToast(rollbackCopy.blockedSystemNotice, "glitch");
+                      showSystemToast(
+                        `blocked-toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        rollbackCopy.blockedSystemNotice,
+                        "glitch"
+                      );
                       return;
                     }
                     setRollbackMode((current) => !current);
@@ -613,9 +764,15 @@ export function ChatPage() {
 
           <div ref={streamRef} className="desktop-chat-stream">
             {currentConversation.view === "articles" ? (
-              <section className="favorite-article-feed" aria-label="收藏文章列表">
+              <section
+                className={`favorite-article-feed favorite-article-feed-${currentConversation.id === "favorite" ? favoriteCollectionTone : "normal"}`}
+                aria-label="收藏文章列表"
+              >
                 {currentConversation.articles?.map((article: NonNullable<MockConversation["articles"]>[number]) => (
-                  <article key={article.id} className="favorite-article-card">
+                  <article
+                    key={article.id}
+                    className={`favorite-article-card favorite-article-card-${currentConversation.id === "favorite" ? favoriteCollectionTone : "normal"}`}
+                  >
                     <header className="favorite-article-header">
                       <div className="favorite-article-source">
                         <span className="favorite-article-avatar">{article.source.slice(0, 1)}</span>
@@ -627,8 +784,7 @@ export function ChatPage() {
                       </div>
                     </header>
                     <h2 className="favorite-article-title">{article.title}</h2>
-                    <p className="favorite-article-summary">{article.summary}</p>
-                    <footer className="favorite-article-footer">
+                    <footer className={`favorite-article-footer favorite-article-footer-${currentConversation.id === "favorite" ? favoriteCollectionTone : "normal"}`}>
                       <span>公众号文章</span>
                       <button type="button">查看</button>
                     </footer>
@@ -659,14 +815,12 @@ export function ChatPage() {
                   <article key={message.id} className="desktop-space-notice-row">
                     <div className="desktop-space-notice-card">
                       <div className="desktop-space-notice-badge">定位共享</div>
-                      <strong className="desktop-space-notice-title">对方发来一张定位图</strong>
-                      <p className="desktop-space-notice-copy">最后一句已经被强制改成了“你在哪？”。</p>
                       <button
                         className="desktop-message-rollback"
                         type="button"
                         onClick={() => navigate("/location")}
                       >
-                        查看定位
+                        打开定位
                       </button>
                       <time className="desktop-space-notice-time">{formatTime(message.timestamp)}</time>
                     </div>
@@ -677,6 +831,8 @@ export function ChatPage() {
               if (message.role === "system") {
                 return null;
               }
+
+              const isMonitorImage = message.kind === "monitor_image" && Boolean(message.mediaUrl);
 
               return (
                 <article
@@ -694,8 +850,17 @@ export function ChatPage() {
                   ) : null}
 
                   <div className={`desktop-message-stack ${message.role}`}>
-                    <div className={`desktop-message-bubble ${message.role}`}>
-                      <span>{message.displayedText}</span>
+                    <div className={`desktop-message-bubble ${message.role}${isMonitorImage ? " media" : ""}`}>
+                      {isMonitorImage ? (
+                        <img
+                          className="desktop-message-media"
+                          src={message.mediaUrl}
+                          alt={message.displayedText}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span>{message.displayedText}</span>
+                      )}
                     </div>
                     {currentConversation.isStory && rollbackMode && message.role !== "system" && message.kind !== "pending" ? (
                       <button

@@ -529,6 +529,22 @@ input {
   gap: 12px;
 }
 
+.desktop-conversation-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.desktop-conversation-unread-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: #ff4d4f;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+}
+
 .desktop-conversation-row strong,
 .desktop-conversation-row time,
 .desktop-conversation-subtitle,
@@ -1151,6 +1167,14 @@ input {
   gap: 16px;
 }
 
+.favorite-article-feed-uneasy {
+  filter: saturate(0.95);
+}
+
+.favorite-article-feed-uncanny {
+  filter: saturate(0.72) contrast(1.08) brightness(0.94);
+}
+
 .favorite-article-card {
   display: grid;
   gap: 14px;
@@ -1158,6 +1182,24 @@ input {
   border-radius: 16px;
   background: #ffffff;
   border: 1px solid #e6e6e6;
+  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.favorite-article-card-uneasy {
+  background: linear-gradient(180deg, #fffefe 0%, #f7f1f4 100%);
+  border-color: #e7d5dd;
+  box-shadow: 0 10px 24px rgba(76, 43, 56, 0.06);
+}
+
+.favorite-article-card-uncanny {
+  background:
+    linear-gradient(180deg, rgba(72, 14, 22, 0.08) 0%, rgba(31, 7, 11, 0.22) 100%),
+    linear-gradient(180deg, #f3e2e1 0%, #ddc1c3 52%, #c89ea1 100%);
+  border-color: #8a4d58;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 232, 0.22),
+    0 16px 36px rgba(46, 7, 12, 0.24);
+  transform: translateY(-1px);
 }
 
 .favorite-article-header {
@@ -1188,11 +1230,28 @@ input {
   font-weight: 700;
 }
 
+.favorite-article-card-uneasy .favorite-article-avatar {
+  background: #f8eef2;
+  border-color: #ead4de;
+  color: #7a4e62;
+}
+
+.favorite-article-card-uncanny .favorite-article-avatar {
+  background: linear-gradient(180deg, #8b1f2d 0%, #5b0f1a 100%);
+  border-color: #4d0d17;
+  color: #f9d6d3;
+  box-shadow: 0 0 0 1px rgba(255, 216, 216, 0.08);
+}
+
 .favorite-article-source strong {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 15px;
+}
+
+.favorite-article-card-uncanny .favorite-article-source strong {
+  color: #58111e;
 }
 
 .favorite-article-meta {
@@ -1205,6 +1264,10 @@ input {
   justify-content: flex-end;
 }
 
+.favorite-article-card-uncanny .favorite-article-meta {
+  color: #7d4a53;
+}
+
 .favorite-article-title {
   margin: 0;
   font-size: 17px;
@@ -1212,10 +1275,27 @@ input {
   color: #222222;
 }
 
+.favorite-article-card-uneasy .favorite-article-title {
+  color: #35202d;
+}
+
+.favorite-article-card-uncanny .favorite-article-title {
+  color: #4a0915;
+  text-shadow: 0 1px 0 rgba(255, 234, 234, 0.2);
+}
+
 .favorite-article-summary {
   margin: 0;
   color: #666666;
   line-height: 1.7;
+}
+
+.favorite-article-card-uneasy .favorite-article-summary {
+  color: #735c68;
+}
+
+.favorite-article-card-uncanny .favorite-article-summary {
+  color: #6f5060;
 }
 
 .favorite-article-footer {
@@ -1227,6 +1307,10 @@ input {
   font-size: 12px;
 }
 
+.favorite-article-footer-uncanny {
+  color: #7f4b53;
+}
+
 .favorite-article-footer button {
   min-height: 30px;
   padding: 0 12px;
@@ -1234,6 +1318,19 @@ input {
   background: #f5f5f5;
   border: 1px solid #e6e6e6;
   color: #4d4d4d;
+}
+
+.favorite-article-footer-uneasy button {
+  background: #fbf4f7;
+  border-color: #ead7df;
+  color: #71495b;
+}
+
+.favorite-article-footer-uncanny button {
+  background: linear-gradient(180deg, #7e1524 0%, #56101a 100%);
+  border-color: #440b14;
+  color: #ffe3df;
+  box-shadow: 0 8px 20px rgba(63, 8, 16, 0.22);
 }
 
 .desktop-space-notice-row {
@@ -1358,6 +1455,13 @@ input {
   font-size: 14px;
 }
 
+.desktop-message-bubble.media {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: hidden;
+}
+
 .desktop-message-bubble.ta,
 .desktop-message-bubble.system {
   background: #ffffff;
@@ -1391,6 +1495,19 @@ input {
 .desktop-message-bubble.user::after {
   right: -4px;
   background: var(--color-wechat);
+}
+
+.desktop-message-bubble.media::after {
+  display: none;
+}
+
+.desktop-message-media {
+  display: block;
+  width: min(100%, 320px);
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(84, 84, 84, 0.22);
+  box-shadow: 0 10px 24px rgba(16, 16, 24, 0.18);
 }
 
 .desktop-message-time {

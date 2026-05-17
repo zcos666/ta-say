@@ -11,6 +11,10 @@ function chooseByCount(pool: { one: string[]; two: Array<[string, string]> }, de
   return [...pair];
 }
 
+function isFinalEntityStage(stage: SessionState["stage"]): boolean {
+  return stage === "location_aftermath" || stage === "meta_break" || stage === "truth_reveal" || stage === "wake_up";
+}
+
 export function getFallbackReply(
   session: SessionState,
   desiredReplyLineCount: 1 | 2,
@@ -44,6 +48,14 @@ export function getFallbackReply(
 
   if (events.includes("exit_blocked")) {
     return chooseByCount(fallbackReplyCopy.events.exit_blocked, desiredReplyLineCount);
+  }
+
+  if (session.sendCount >= 5 && isFinalEntityStage(session.stage)) {
+    return chooseByCount(fallbackReplyCopy.finalEntityReplies, desiredReplyLineCount);
+  }
+
+  if (session.sendCount >= 5) {
+    return chooseByCount(fallbackReplyCopy.postThresholdChaos, desiredReplyLineCount);
   }
 
   if (triggerReason === "keyword" && triggerKeyword && fallbackReplyCopy.keywords[triggerKeyword as keyof typeof fallbackReplyCopy.keywords]) {

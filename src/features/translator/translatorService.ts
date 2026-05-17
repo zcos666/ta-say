@@ -1,4 +1,5 @@
 import { defaultMockChat, shareLineFallbacks, translatorFallbacks } from "../../config/fallbacks";
+import { buildHardcodedTranslationReport, findBestSubtextMapping } from "../../config/subtextMappings";
 import { llmClient } from "../../services/api/llmClient";
 import type { LoveTranslationReport, TaPronoun } from "../../types/api";
 import type { ShareCardData } from "../../types/session";
@@ -96,6 +97,17 @@ function findFallbackReport(chatText: string) {
   return undefined;
 }
 
+function findHardcodedReport(chatText: string, taPronoun: TaPronoun | null) {
+  const original = extractOriginalSentence(chatText);
+  const matched = findBestSubtextMapping(original);
+
+  if (!matched) {
+    return undefined;
+  }
+
+  return sanitizeReport(buildHardcodedTranslationReport(original, matched, taPronoun), original);
+}
+
 function resolveLocalReport(
   chatText: string,
   taPronoun: TaPronoun | null,
@@ -114,6 +126,14 @@ async function resolveRemoteReport(
   chatText: string,
   taPronoun: TaPronoun | null,
 ): Promise<ReportBuildResult> {
+  const hardcodedReport = findHardcodedReport(chatText, taPronoun);
+  if (hardcodedReport) {
+    return {
+      report: hardcodedReport,
+      usedFallback: false
+    };
+  }
+
   try {
     const report = await llmClient.loveTranslate(chatText, {
       taPronoun,
@@ -204,6 +224,10 @@ function buildShareCardData(
 
 export async function translateLoveLanguage(chatText: string): Promise<LoveTranslationReport> {
   const normalized = normalizeText(chatText);
+  const hardcodedReport = findHardcodedReport(normalized, null);
+  if (hardcodedReport) {
+    return hardcodedReport;
+  }
 
   if (normalized.length < 4) {
     throw new Error("输入太短，至少给我一句完整对话。");

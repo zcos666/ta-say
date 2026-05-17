@@ -1,5 +1,5 @@
 import { findKeywordRule } from "../pollution/pollutionRules";
-import type { SessionState } from "../../types/session";
+import { countNarrativeConversationMessages, type SessionState } from "../../types/session";
 import type { StoryEvent, TriggerReason } from "../../types/story";
 
 export interface TriggerEvaluation {
@@ -19,8 +19,9 @@ export function evaluateTriggers(
 ): TriggerEvaluation {
   const keywordRule = findKeywordRule(userInput);
   const events: StoryEvent[] = [];
+  const nextTotalConversationCount = countNarrativeConversationMessages(session.chatHistory) + 1;
   const enterLocationReveal =
-    nextSendCount >= 20 &&
+    nextTotalConversationCount >= 20 &&
     session.stage !== "location_reveal" &&
     session.stage !== "location_aftermath" &&
     session.stage !== "truth_reveal" &&
@@ -42,21 +43,11 @@ export function evaluateTriggers(
           : undefined;
 
   const shouldPollute = Boolean(triggerReason);
-  if (session.spaceVisitCount >= 2) {
-    events.push("space_glitch");
-  }
-
-  if (session.exitClickCount >= 1) {
-    events.push("exit_blocked");
-  }
-
   if (enterLocationReveal) {
     events.push("location_ping");
   }
 
-  const totalConversationCount =
-    session.chatHistory.filter((message) => message.role !== "system").length + 2;
-  const enterMetaBreak = totalConversationCount >= 20;
+  const enterMetaBreak = nextTotalConversationCount >= 20;
 
   return {
     shouldPollute,

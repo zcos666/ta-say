@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { extractDeletedDraftSegment } from "../../features/drafts/draftMonitor";
-import { buildPollutionResult } from "../../features/pollution/pollutionEngine";
+import { resolvePollutionResult } from "../../features/pollution/pollutionEngine";
 import { buildReply } from "../../features/reply/replyEngine";
 import { draftCopy, exitCopy, rollbackCopy, storyCopy, uiCopy } from "../../config/hardcodedCopy";
 import {
@@ -14,8 +14,10 @@ import { evaluateTriggers } from "../../features/story/triggerEngine";
 import { storageRepository } from "../../services/storage/storageRepository";
 import type { LoveTranslationReport } from "../../types/api";
 import {
+  countNarrativeConversationMessages,
   createChatMessage,
   createEmptySession,
+  isLlmContextMessage,
   type PersistedState,
   type SessionState,
   type ShareCardData
@@ -35,6 +37,7 @@ let draftPauseTimers: number[] = [];
 let currentDraftEditCount = 0;
 let currentDraftPauseLevel = 0;
 let currentDraftLastChangedAt: number | undefined;
+const monitorImageUrl = new URL("../../../66c8ec9cf7b1f1e882d92c7f0c2e8d73.png", import.meta.url).href;
 
 function resetPendingDeletedDraft() {
   pendingDeletedDraft = "";
@@ -127,6 +130,7 @@ interface AppStore {
   sendMessage: (input: string, pendingMessageId?: string) => Promise<void>;
   rollbackToMessage: (messageId: string) => void;
   completeLocationReveal: () => void;
+  sendLocationTurnBack: () => void;
   revealLocationLie: () => void;
   visitSpace: () => void;
   exitAttempt: () => Promise<void>;
@@ -164,6 +168,13 @@ function createIntroSpaceNotice(pronoun: TaPronoun | null) {
 function createLocationNotice() {
   return createChatMessage("system", storyCopy.locationNotice, {
     kind: "location_notice"
+  });
+}
+
+function createMonitorImageMessage() {
+  return createChatMessage("ta", storyCopy.monitorImageAlt, {
+    kind: "monitor_image",
+    mediaUrl: monitorImageUrl
   });
 }
 
@@ -444,6 +455,7 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     const session = get().session;
     const nextSendCount = session.sendCount + 1;
+    const nextTotalConversationCount = countNarrativeConversationMessages(session.chatHistory) + 1;
     const now = Date.now();
     const hesitationSeconds =
       currentDraftLastChangedAt && currentDraftPauseLevel > 0
@@ -453,14 +465,21 @@ export const useAppStore = create<AppStore>((set, get) => {
     const shouldRecordHeavyEditing = currentDraftEditCount >= 2;
 
     const triggerEvaluation = evaluateTriggers(session, userInput, nextSendCount);
-    const pollution = buildPollutionResult({
+    const hasShownMonitorImage = session.metaMemory.includes(storyCopy.monitorImageMetaMemory);
+    const shouldSendMonitorImage = nextTotalConversationCount >= 15 && !hasShownMonitorImage;
+    const pollution = await resolvePollutionResult({
       userInput,
       stage: session.stage,
       pollutionCount: session.pollutionCount,
       sendCount: nextSendCount,
       triggerReason: triggerEvaluation.triggerReason,
       keyword: triggerEvaluation.keyword,
-      events: triggerEvaluation.events
+      events: triggerEvaluation.events,
+      taPronoun: session.taPronoun,
+      recentMessages: session.chatHistory.filter(isLlmContextMessage).slice(-4).map((message) => ({
+        role: message.role,
+        text: message.role === "user" ? message.originalText?.trim() || message.displayedText : message.displayedText
+      }))
     });
     const events = [...triggerEvaluation.events];
     if (shouldRecordHesitation) {
@@ -513,6 +532,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         loadCount: session.loadCount
       })
     };
+    let deferredSystemNotice: ReturnType<typeof createChatMessage> | null = null;
 
     if (shouldRecordHesitation || shouldRecordHeavyEditing) {
       const draftMetaLines = [];
@@ -528,14 +548,12 @@ export const useAppStore = create<AppStore>((set, get) => {
     resetDraftPauseState();
 
     if (triggerEvaluation.events.includes("draft_exposed")) {
-      nextSession.chatHistory.push(
-        createChatMessage(
-          "system",
-          `输入框刚刚替你记住了：${
-            session.deletedDrafts[session.deletedDrafts.length - 1] ?? "你刚刚那句没发出来的话。"
-          }`,
-          { kind: "warning" }
-        )
+      deferredSystemNotice = createChatMessage(
+        "system",
+        `输入框刚刚替你记住了：${
+          session.deletedDrafts[session.deletedDrafts.length - 1] ?? "你刚刚那句没发出来的话。"
+        }`,
+        { kind: "warning" }
       );
       nextSession.metaMemory = [...nextSession.metaMemory, "被删掉的草稿开始反咬回来。"];
     }
@@ -570,6 +588,24 @@ export const useAppStore = create<AppStore>((set, get) => {
     }));
     persistSession(nextSession);
 
+    if (shouldSendMonitorImage) {
+      const imageSession = {
+        ...nextSession,
+        chatHistory: [...nextSession.chatHistory, createMonitorImageMessage()],
+        metaMemory: [...nextSession.metaMemory, storyCopy.monitorImageMetaMemory]
+      };
+
+      set({ session: imageSession, isReplying: false, isTaTyping: true });
+      persistSession(imageSession);
+
+      void (async () => {
+        await streamTaReplyLines([storyCopy.monitorImageLine], "glitch", {
+          waitBeforeFirstLine: true
+        });
+      })();
+      return;
+    }
+
     if (triggerEvaluation.events.includes("location_ping")) {
       const finalSession = {
         ...nextSession,
@@ -584,14 +620,27 @@ export const useAppStore = create<AppStore>((set, get) => {
     }
 
     const replyKind = pollution ? "glitch" : "normal";
+    const replyContextSession: SessionState = {
+      ...nextSession
+    };
     const replyLines = await buildReply({
-      session: nextSession,
+      session: replyContextSession,
       originalInput: userInput,
       pollutedInput: pollution?.pollutedText ?? userInput,
       triggerKeyword: triggerEvaluation.keyword,
       triggerReason: triggerEvaluation.triggerReason,
       events
     });
+
+    if (deferredSystemNotice) {
+      const sessionWithNotice = {
+        ...get().session,
+        chatHistory: [...get().session.chatHistory, deferredSystemNotice]
+      };
+      set({ session: sessionWithNotice });
+      persistSession(sessionWithNotice);
+    }
+
     await streamTaReplyLines(replyLines, replyKind);
   },
 
@@ -623,11 +672,27 @@ export const useAppStore = create<AppStore>((set, get) => {
       const nextSession = {
         ...state.session,
         stage: "location_aftermath" as const,
+        metaMemory: [...state.session.metaMemory, "看完定位图后，定位页已被关闭。"]
+      };
+
+      persistSession(nextSession);
+      return { session: nextSession };
+    });
+  },
+
+  sendLocationTurnBack: () => {
+    set((state) => {
+      if (state.session.metaMemory.includes("定位结尾第一句已触发。")) {
+        return state;
+      }
+
+      const nextSession = {
+        ...state.session,
         chatHistory: [
           ...state.session.chatHistory,
           createChatMessage("ta", storyCopy.locationRevealLine, { kind: "glitch" })
         ],
-        metaMemory: [...state.session.metaMemory, "看完定位图后，TA 让你回头。"]
+        metaMemory: [...state.session.metaMemory, "定位结尾第一句已触发。"]
       };
 
       persistSession(nextSession);

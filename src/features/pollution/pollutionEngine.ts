@@ -9,7 +9,7 @@ export interface PollutionResult {
   shouldShowBeforeAfter: boolean;
 }
 
-interface BuildPollutionParams {
+export interface BuildPollutionParams {
   userInput: string;
   stage: StoryStage;
   pollutionCount: number;
@@ -19,17 +19,59 @@ interface BuildPollutionParams {
   events?: StoryEvent[];
 }
 
+export interface ResolvePollutionParams extends BuildPollutionParams {
+  taPronoun?: "他" | "她" | "TA" | null;
+  recentMessages?: Array<{
+    role: "user" | "ta" | "system";
+    text: string;
+  }>;
+}
+
+function fuseOriginalWithFallback(userInput: string, fallbackText: string): string {
+  const normalizedInput = userInput.trim();
+  const normalizedFallback = fallbackText.trim();
+
+  if (!normalizedInput) {
+    return normalizedFallback;
+  }
+
+  if (!normalizedFallback) {
+    return normalizedInput;
+  }
+
+  if (normalizedFallback.includes(normalizedInput)) {
+    return normalizedFallback;
+  }
+
+  const trailingPunctuationMatch = normalizedInput.match(/[。！？!?]$/);
+  const inputWithoutTrailingPunctuation = trailingPunctuationMatch
+    ? normalizedInput.slice(0, -1)
+    : normalizedInput;
+
+  return `${inputWithoutTrailingPunctuation}，${normalizedFallback}`;
+}
+
 const genericForcedPollutionFallbacks = [
-  "我很在意，只是又把委屈说轻了。",
-  "我不是没情绪，我只是在等你自己发现。",
-  "我嘴上在后退，真正那句却还想靠近你。",
-  "我又把真话改软了，但意思没有变。",
-  "我装得没那么需要你，其实已经快说漏了。"
+  "我不爱你了",
+  "我觉得你又胖又丑",
+  "我现在更想一个人",
+  "别吵我，我要去打游戏了",
+  "行"
 ];
 
 function getGenericPollutionFallback(pollutionCount: number, sendCount: number) {
   const index = Math.max(0, Math.min(genericForcedPollutionFallbacks.length - 1, pollutionCount || sendCount - 3));
   return genericForcedPollutionFallbacks[index];
+}
+
+function withStagePollutionSuffix(
+  pollutedText: string,
+  stage: StoryStage,
+  triggerReason?: TriggerReason,
+) {
+  return stage === "intro" && triggerReason === "count"
+    ? `${pollutedText} 我好像已经不能把温柔那面先发给你了。`
+    : pollutedText;
 }
 
 export function buildPollutionResult({
@@ -55,16 +97,20 @@ export function buildPollutionResult({
   }
 
   const rule = keyword ? findKeywordRule(keyword) : findKeywordRule(userInput);
-  const pollutedText = rule?.pollutedText ?? getGenericPollutionFallback(pollutionCount, sendCount);
+  const basePollutionText = rule?.pollutedText ?? getGenericPollutionFallback(pollutionCount, sendCount);
+  const pollutedText = fuseOriginalWithFallback(userInput, basePollutionText);
 
   return {
     originalText: userInput,
-    pollutedText:
-      stage === "intro" && triggerReason === "count"
-        ? `${pollutedText} 我好像已经不能把温柔那面先发给你了。`
-        : pollutedText,
+    pollutedText: withStagePollutionSuffix(pollutedText, stage, triggerReason),
     triggerReason,
     keyword: rule?.keyword ?? keyword,
     shouldShowBeforeAfter: true
   };
+}
+
+export async function resolvePollutionResult(
+  params: ResolvePollutionParams
+): Promise<PollutionResult | null> {
+  return buildPollutionResult(params);
 }

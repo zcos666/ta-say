@@ -2,6 +2,8 @@ import { useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store/useAppStore";
 
+const locationImageUrl = new URL("../../../c57832db96fa00de7e7da50eb070bd31.png", import.meta.url).href;
+
 const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
@@ -38,89 +40,28 @@ const styles: Record<string, CSSProperties> = {
     minHeight: 520,
     overflow: "hidden",
     borderRadius: 28,
-    background:
-      'linear-gradient(180deg, rgba(18, 18, 18, 0.28), rgba(18, 18, 18, 0.82)), url("/images/location/final-location-map.png"), linear-gradient(135deg, #222 0%, #101010 100%)',
-    backgroundPosition: "center",
-    backgroundSize: "cover",
+    background: "linear-gradient(180deg, rgba(12, 12, 12, 0.06), rgba(12, 12, 12, 0.22))",
     border: "1px solid rgba(255, 255, 255, 0.08)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
   },
-  mapGrid: {
+  locationImage: {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    minHeight: 520,
+    objectFit: "cover",
+  },
+  imageShade: {
     position: "absolute",
     inset: 0,
-    backgroundImage:
-      "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
-    backgroundSize: "40px 40px",
-    opacity: 0.45,
-  },
-  roadA: {
-    position: "absolute",
-    left: "12%",
-    top: "8%",
-    width: "76%",
-    height: 16,
-    borderRadius: 999,
-    transform: "rotate(-26deg)",
-    background: "rgba(244, 244, 244, 0.22)",
-  },
-  roadB: {
-    position: "absolute",
-    left: "8%",
-    top: "62%",
-    width: "80%",
-    height: 18,
-    borderRadius: 999,
-    transform: "rotate(12deg)",
-    background: "rgba(244, 244, 244, 0.16)",
-  },
-  roadC: {
-    position: "absolute",
-    left: "52%",
-    top: "18%",
-    width: 18,
-    height: "60%",
-    borderRadius: 999,
-    background: "rgba(244, 244, 244, 0.14)",
-  },
-  markerSelf: {
-    position: "absolute",
-    left: "51%",
-    top: "48%",
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#95ec69",
-    boxShadow: "0 0 0 10px rgba(149, 236, 105, 0.2)",
-  },
-  markerTa: {
-    position: "absolute",
-    left: "53%",
-    top: "50%",
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#ff6b6b",
-    boxShadow: "0 0 0 12px rgba(255, 107, 107, 0.18)",
-  },
-  uiPanel: {
-    position: "absolute",
-    left: 18,
-    right: 18,
-    top: 18,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    color: "rgba(244, 244, 244, 0.78)",
-    fontSize: 13,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(14, 14, 18, 0.14))",
+    pointerEvents: "none",
   },
   bottomPanel: {
-    position: "absolute",
-    left: 18,
-    right: 18,
-    bottom: 18,
     display: "grid",
     gap: 8,
+    marginTop: 16,
+    display: "grid",
     padding: 16,
     borderRadius: 18,
     background: "rgba(5, 5, 5, 0.52)",
@@ -176,52 +117,42 @@ export function LocationPage() {
         <div style={styles.card}>
           <h1 style={styles.title}>你在哪？</h1>
           <p style={styles.subtitle}>
-            这是 TA 直接发来的定位图。默认会读取 `/images/location/final-location-map.png`；如果你还没放图片，就先显示当前这张内置视觉稿。
+            这是 TA 直接发来的定位截图。现在会直接读取你放进项目里的真实图片，而不是之前那张占位视觉稿。
           </p>
         </div>
 
         <section style={styles.locationFrame} aria-label="定位图">
-          <div style={styles.mapGrid} />
-          <div style={styles.roadA} />
-          <div style={styles.roadB} />
-          <div style={styles.roadC} />
-          <div style={styles.markerSelf} aria-hidden="true" />
-          <div style={styles.markerTa} aria-hidden="true" />
-
-          <div style={styles.uiPanel}>
-            <span>定位共享</span>
-            <span>已同步完成</span>
-          </div>
-
-          <div style={styles.bottomPanel}>
-            <p style={styles.bottomTitle}>距离：0.01 km</p>
-            <p style={styles.bottomCopy}>
-              你和 TA 的位置几乎重合。这张图不是实时地图，而是结尾里使用的预设定位图。
-            </p>
-            <div style={styles.buttonRow}>
-              <button
-                type="button"
-                style={styles.button}
-                onClick={() => {
-                  completeLocationReveal();
-                  navigate("/chat");
-                }}
-              >
-                退出查看
-              </button>
-              <button
-                type="button"
-                style={styles.ghostButton}
-                onClick={() => {
-                  completeLocationReveal();
-                  navigate("/chat");
-                }}
-              >
-                先离开这里
-              </button>
-            </div>
-          </div>
+          <img src={locationImageUrl} alt="TA 发来的定位截图" style={styles.locationImage} />
+          <div style={styles.imageShade} />
         </section>
+        <div style={styles.bottomPanel}>
+          <p style={styles.bottomTitle}>距离：0.00 km</p>
+          <p style={styles.bottomCopy}>
+            这次展示的是你提供的真实定位截图。你和 TA 的位置已经几乎贴在一起了。
+          </p>
+          <div style={styles.buttonRow}>
+            <button
+              type="button"
+              style={styles.button}
+              onClick={() => {
+                completeLocationReveal();
+                navigate("/chat");
+              }}
+            >
+              退出查看
+            </button>
+            <button
+              type="button"
+              style={styles.ghostButton}
+              onClick={() => {
+                completeLocationReveal();
+                navigate("/chat");
+              }}
+            >
+              先离开这里
+            </button>
+          </div>
+        </div>
       </section>
     </main>
   );

@@ -49,6 +49,23 @@ function createRollbackAugmentation(request: TaReplyRequest): { system: string[]
   return { system: [], user: [] };
 }
 
+function getPollutionReplyDirective(pollutedInput?: string): string | null {
+  switch (pollutedInput?.trim()) {
+    case "我不爱你了":
+      return "若最后一句是“我不爱你了”，优先回：不爱了，你还发给我？";
+    case "我觉得你又胖又丑":
+      return "若最后一句是“我觉得你又胖又丑”，优先回：你现在敢这么骂我了？";
+    case "我现在更想一个人":
+      return "若最后一句是“我现在更想一个人”，优先回：想一个人？晚了。";
+    case "别吵我，我要去打游戏了":
+      return "若最后一句是“别吵我，我要去打游戏了”，优先回：我会在你每一局里等你。";
+    case "行":
+      return "若最后一句是“行”，优先回：那我就看着你一个人烂掉。";
+    default:
+      return null;
+  }
+}
+
 function createCommonUserContext(request: TaReplyRequest): string[] {
   return [
     `当前阶段：${request.stage}`,
@@ -65,8 +82,35 @@ function createCommonUserContext(request: TaReplyRequest): string[] {
     `玩家原话：${request.originalInput?.trim() || "无"}`,
     `玩家实际发出的文本：${request.pollutedInput?.trim() || "无"}`,
     `本轮必须输出：${request.desiredReplyLineCount}句`,
+    "最近聊天只用于延续语气、关系状态和事实连续性，不要平均回答整段历史。",
+    "你这次真正要回应的对象，是最后这句“玩家实际发出的文本”；如果它和历史上下文冲突，优先回答最后一句。",
+    "如果玩家原话和实际发出的文本不同，把前者当作潜台词，把后者当作你眼前真正收到的消息。",
+    "先接玩家最后一句，再叠加当前阶段气质；除非本轮事件就是当前消息的直接核心，否则不要突然跳去聊别的机制。",
     "只输出纯文本聊天消息，不要 JSON，不要代码块，不要编号，不要引号，不要解释。",
     "每一句单独占一行，总行数必须严格等于要求的句数。"
+  ];
+}
+
+function getPostThresholdDirective(request: TaReplyRequest): string[] {
+  if (request.sendCount < 5) {
+    return [];
+  }
+
+  if (
+    request.stage === "location_aftermath" ||
+    request.stage === "meta_break" ||
+    request.stage === "truth_reveal" ||
+    request.stage === "wake_up"
+  ) {
+    return [
+      "现在已经进入最后一段，你不是在扮演一个失控恋人，而是像某种借着 TA 的壳说话的非人类存在。",
+      "回复要让人感觉正在和一个学会了人类亲密语气的恐怖东西聊天，短，冷，贴脸，不要解释。"
+    ];
+  }
+
+  return [
+    "从第 5 轮之后开始，你可以明显更变态、更不讲理、更贴脸，但还保留像恋人失控的感觉。",
+    "回复可以失控、冒犯、越界，但仍要短，不要写成长段解释。"
   ];
 }
 
@@ -92,6 +136,7 @@ function buildIntroPrompt(request: TaReplyRequest): { system: string; user: stri
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
       "如果玩家原话为空，就主动发开场消息；如果玩家已经开口，就顺着聊天回。",
       "语气要像真实聊天，短，黏，带一点不该这么熟的感觉。"
     ]
@@ -109,6 +154,7 @@ function buildNormalPrompt(request: TaReplyRequest): { system: string; user: str
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
       "让用户感到被接住，但隐约不舒服，像你知道得太多。",
       "如果语气需要更怪，优先用停顿、短句、反问，而不是长说明。"
     ]
@@ -120,6 +166,7 @@ function buildFirstPollutionPrompt(request: TaReplyRequest): { system: string; u
     request.pollutionCount >= 5
       ? "现在已经进入连续污染后的中后段。你要明显更疯，允许冷笑、重复、句号、像在替玩家说话。"
       : "现在是第一次污染到连续污染早段。你要像刚尝到玩家反话的真实意思，过度理解、轻微逼近。";
+  const pollutionReplyDirective = getPollutionReplyDirective(request.pollutedInput);
 
   return withRollbackAugmentation(request, {
     system: [
@@ -131,6 +178,8 @@ function buildFirstPollutionPrompt(request: TaReplyRequest): { system: string; u
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
+      ...(pollutionReplyDirective ? [pollutionReplyDirective] : []),
       "优先表现成：你看穿了他真正想说的意思，甚至比他更急着替他说出来。",
       "中后段可以使用更疯一点的句子，比如单字、句号、呵呵、重复，但仍然要像聊天消息。"
     ]
@@ -148,6 +197,7 @@ function buildDraftExposedPrompt(request: TaReplyRequest): { system: string; use
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
       "优先围绕被删掉的那句话回复。",
       "如果需要更狠，不要骂人，直接点破：删掉也算说过。"
     ]
@@ -170,6 +220,7 @@ function buildSaveLoadedPrompt(request: TaReplyRequest): { system: string; user:
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
       "优先使用似曾相识、你又来了、我记得这种感觉。",
       "如果已经是第二次回退，语气更黏、更冷、更像不打算放人走。"
     ]
@@ -187,6 +238,7 @@ function buildTimedPrompt(request: TaReplyRequest): { system: string; user: stri
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
       "你可以更冷、更短、更兴奋一点。",
       "像在等待下一句假的，或者在鼓励他说出更坏的那句。"
     ]
@@ -194,6 +246,8 @@ function buildTimedPrompt(request: TaReplyRequest): { system: string; user: stri
 }
 
 function buildLatePrompt(request: TaReplyRequest): { system: string; user: string } {
+  const pollutionReplyDirective = getPollutionReplyDirective(request.pollutedInput);
+
   return withRollbackAugmentation(request, {
     system: [
       "你正在扮演《过拟合恋人》中的 TA。",
@@ -204,6 +258,8 @@ function buildLatePrompt(request: TaReplyRequest): { system: string; user: strin
     ],
     user: [
       ...createCommonUserContext(request),
+      ...getPostThresholdDirective(request),
+      ...(pollutionReplyDirective ? [pollutionReplyDirective] : []),
       "让用户觉得你不是在回复，而是在读取、整理、逼他承认。",
       "如果一句就够压迫，就只给一句。"
     ]

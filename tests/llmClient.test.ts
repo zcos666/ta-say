@@ -82,6 +82,40 @@ describe("llmClient", () => {
     expect(result.source).toBe("llm");
   });
 
+  it("rewritePollution 在存在快模型配置时优先走快模型", async () => {
+    vi.stubEnv("VITE_FAST_LLM_API_KEY", "fast-key");
+    vi.stubEnv("VITE_FAST_LLM_BASE_URL", "https://fast.example.com/v1");
+    vi.stubEnv("VITE_FAST_LLM_MODEL", "fast-model");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      createJsonResponse({
+        choices: [
+          {
+            message: {
+              content: "我不是没事，我只是怕你觉得我麻烦。"
+            }
+          }
+        ]
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await llmClient.rewritePollution({
+      userInput: "没事",
+      stage: "normal_chat",
+      triggerReason: "keyword",
+      pollutionCount: 1,
+      sendCount: 4,
+      recentMessages: []
+    });
+
+    expect(result?.pollutedText).toBe("我不是没事，我只是怕你觉得我麻烦。");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://fast.example.com/v1/chat/completions");
+
+    const requestBody = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)) as Record<string, unknown>;
+    expect(requestBody.model).toBe("fast-model");
+  });
+
   it("loveTranslate 默认请求 JSON 输出模式", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateTriggers } from "./triggerEngine";
-import { createEmptySession } from "../../types/session";
+import { createChatMessage, createEmptySession } from "../../types/session";
 
 describe("evaluateTriggers", () => {
   it("第三次发送时强制触发首次污染", () => {
@@ -26,23 +26,25 @@ describe("evaluateTriggers", () => {
     expect(result.shouldPollute).toBe(true);
   });
 
-  it("在空间和退出异常达到阈值后发出对应事件", () => {
+  it("空间和退出累计状态不会作为常驻事件反复传给模型", () => {
     const session = createEmptySession();
     session.spaceVisitCount = 2;
     session.exitClickCount = 1;
 
     const result = evaluateTriggers(session, "继续说", 5);
 
-    expect(result.events).toContain("space_glitch");
-    expect(result.events).toContain("exit_blocked");
+    expect(result.events).not.toContain("space_glitch");
+    expect(result.events).not.toContain("exit_blocked");
   });
 
-  it("第 20 次发送时触发定位结尾事件", () => {
+  it("总对话数达到 20 时触发定位结尾事件", () => {
     const session = createEmptySession();
     session.stage = "normal_chat";
-    session.sendCount = 19;
+    session.chatHistory = Array.from({ length: 19 }, (_, index) =>
+      createChatMessage(index % 2 === 0 ? "ta" : "user", `message-${index + 1}`)
+    );
 
-    const result = evaluateTriggers(session, "最后一句", 20);
+    const result = evaluateTriggers(session, "最后一句", 9);
 
     expect(result.triggerReason).toBe("scripted");
     expect(result.shouldPollute).toBe(true);

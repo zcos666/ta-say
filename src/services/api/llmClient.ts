@@ -2,6 +2,8 @@ import { buildTaReplyPrompt } from "../../config/prompts";
 import type {
   LoveTranslateRequest,
   LoveTranslationReport,
+  PollutionRewriteRequest,
+  PollutionRewriteResponse,
   ShareLineRequest,
   ShareLineResponse,
   TaReplyRequest,
@@ -40,13 +42,30 @@ interface ChatCompletionOptions {
   temperature: number;
   maxTokens: number;
   preferJsonMode?: boolean;
+  signal?: AbortSignal;
 }
 
 interface ChatCompletionStreamOptions extends ChatCompletionOptions {
   onChunk: (chunk: string) => void;
 }
 
-function getEnvValue(key: "VITE_LLM_API_KEY" | "VITE_LLM_BASE_URL" | "VITE_LLM_MODEL"): string {
+interface ModelConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+type ModelTarget = "default" | "fast";
+
+function getEnvValue(
+  key:
+    | "VITE_LLM_API_KEY"
+    | "VITE_LLM_BASE_URL"
+    | "VITE_LLM_MODEL"
+    | "VITE_FAST_LLM_API_KEY"
+    | "VITE_FAST_LLM_BASE_URL"
+    | "VITE_FAST_LLM_MODEL"
+): string {
   return (import.meta.env[key] as string | undefined)?.trim() ?? "";
 }
 
@@ -54,8 +73,35 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function resolveModelConfig(target: ModelTarget): ModelConfig {
+  if (target === "fast") {
+    const fastApiKey = getEnvValue("VITE_FAST_LLM_API_KEY");
+    const fastBaseUrl = getEnvValue("VITE_FAST_LLM_BASE_URL");
+    const fastModel = getEnvValue("VITE_FAST_LLM_MODEL");
+
+    if (fastApiKey) {
+      return {
+        apiKey: fastApiKey,
+        baseUrl: normalizeBaseUrl(fastBaseUrl || getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1"),
+        model: fastModel || getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini"
+      };
+    }
+  }
+
+  return {
+    apiKey: getEnvValue("VITE_LLM_API_KEY"),
+    baseUrl: normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1"),
+    model: getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini"
+  };
+}
+
 function isEnabled(): boolean {
   return Boolean(getEnvValue("VITE_LLM_API_KEY"));
+}
+
+function isFastEnabled(): boolean {
+  const fastConfig = resolveModelConfig("fast");
+  return Boolean(fastConfig.apiKey);
 }
 
 function extractMessageContent(content: ChatMessageContent): string {
@@ -176,6 +222,40 @@ function buildShareLineMessages(payload: ShareLineRequest): { system: string; us
   };
 }
 
+function buildPollutionRewriteMessages(payload: PollutionRewriteRequest): { system: string; user: string } {
+  const recentMessages = (payload.recentMessages ?? [])
+    .slice(-4)
+    .map((message) => `${message.role}: ${message.text}`)
+    .join("\n");
+
+  return {
+    system: [
+      "你是一个极快的恋爱聊天反向翻译器。",
+      "你的唯一任务，是把用户这句嘴硬、回避、反话或缩回去的话，改写成一句'被系统反译过的原句'。",
+      "改写时要保留原句表层语义、措辞回声或句式骨架，再把隐藏的真实意思混进去。",
+      "不要把结果写成纯心理分析或纯潜台词解释，它必须仍然像用户刚刚发出去的一句话，只是被反向翻译了。",
+      "只做反向翻译，不补剧情，不扩写背景，不分析，不安慰，不解释。",
+      "输出必须只有最终改写后的那一句话，不要 JSON，不要代码块，不要引号，不要多句。"
+    ].join("\n"),
+    user: [
+      `当前阶段：${payload.stage}`,
+      `触发原因：${payload.triggerReason ?? "无"}`,
+      `命中关键词：${payload.triggerKeyword ?? "无"}`,
+      `TA 称呼：${payload.taPronoun ?? "TA"}`,
+      `累计污染次数：${payload.pollutionCount}`,
+      `用户发送次数：${payload.sendCount}`,
+      `最近聊天（仅供语气参考）：\n${recentMessages || "无"}`,
+      `用户原句：${payload.userInput}`,
+      "要求：",
+      "1. 只输出一句中文。",
+      "2. 保留原句核心语义，并尽量保留几个原句里的词、语气或句式，让人一眼看出它是原句被改写了。",
+      "3. 在原句反译的基础上，融合一点真实潜台词，但潜台词不能喧宾夺主。",
+      "4. 语气可以更直接，但不能突然像旁白、说明书或心理报告。",
+      "5. 不要发明新事实，不要提系统设定，不要超出这句话本身能推出的意思。 "
+    ].join("\n")
+  };
+}
+
 function extractShareLineJson(raw: string): string {
   const parsed = extractJson<{ shareLine?: unknown }>(raw);
   const shareLine = typeof parsed.shareLine === "string" ? parsed.shareLine.trim() : "";
@@ -191,17 +271,16 @@ async function requestChatCompletionOnce(
   messages: Array<{ role: "system" | "user"; content: string }>,
   options: ChatCompletionOptions,
   forceJsonMode: boolean,
+  target: ModelTarget = "default",
 ) {
-  const apiKey = getEnvValue("VITE_LLM_API_KEY");
+  const modelConfig = resolveModelConfig(target);
 
-  if (!apiKey) {
-    throw new Error("Missing VITE_LLM_API_KEY.");
+  if (!modelConfig.apiKey) {
+    throw new Error(target === "fast" ? "Missing fast LLM API key." : "Missing VITE_LLM_API_KEY.");
   }
 
-  const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
-  const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
   const requestBody: Record<string, unknown> = {
-    model,
+    model: modelConfig.model,
     temperature: options.temperature,
     max_tokens: options.maxTokens,
     messages,
@@ -211,13 +290,14 @@ async function requestChatCompletionOnce(
     requestBody.response_format = { type: "json_object" };
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch(`${modelConfig.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${modelConfig.apiKey}`,
     },
     body: JSON.stringify(requestBody),
+    signal: options.signal
   });
 
   if (!response.ok) {
@@ -249,13 +329,14 @@ async function requestChatCompletionOnce(
 async function requestChatCompletion(
   messages: Array<{ role: "system" | "user"; content: string }>,
   options: ChatCompletionOptions,
+  target: ModelTarget = "default",
 ) {
   if (!options.preferJsonMode) {
-    return requestChatCompletionOnce(messages, options, false);
+    return requestChatCompletionOnce(messages, options, false, target);
   }
 
   try {
-    return await requestChatCompletionOnce(messages, options, true);
+    return await requestChatCompletionOnce(messages, options, true, target);
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === "number"
       ? (error as { status: number }).status
@@ -266,7 +347,7 @@ async function requestChatCompletion(
     const forceJsonMode = Boolean((error as { forceJsonMode?: unknown })?.forceJsonMode);
 
     if (forceJsonMode && shouldRetryWithoutJsonMode(status, errorText)) {
-      return requestChatCompletionOnce(messages, options, false);
+      return requestChatCompletionOnce(messages, options, false, target);
     }
 
     throw error;
@@ -291,23 +372,22 @@ function extractStreamDeltaContent(content: ChatCompletionStreamChoice["delta"] 
 async function requestChatCompletionStream(
   messages: Array<{ role: "system" | "user"; content: string }>,
   options: ChatCompletionStreamOptions,
+  target: ModelTarget = "default",
 ) {
-  const apiKey = getEnvValue("VITE_LLM_API_KEY");
+  const modelConfig = resolveModelConfig(target);
 
-  if (!apiKey) {
-    throw new Error("Missing VITE_LLM_API_KEY.");
+  if (!modelConfig.apiKey) {
+    throw new Error(target === "fast" ? "Missing fast LLM API key." : "Missing VITE_LLM_API_KEY.");
   }
 
-  const baseUrl = normalizeBaseUrl(getEnvValue("VITE_LLM_BASE_URL") || "https://api.openai.com/v1");
-  const model = getEnvValue("VITE_LLM_MODEL") || "gpt-4o-mini";
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch(`${modelConfig.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${modelConfig.apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: modelConfig.model,
       temperature: options.temperature,
       max_tokens: options.maxTokens,
       stream: true,
@@ -402,7 +482,7 @@ export async function generateTaReply(request: TaReplyRequest): Promise<TaReplyR
   ], {
     temperature: 0.6,
     maxTokens: 90,
-  });
+  }, "fast");
 
   return {
     reply: extractReplyLines(rawContent, request.desiredReplyLineCount),
@@ -446,7 +526,7 @@ export async function streamTaReply(
         onLine(line);
       }
     }
-  });
+  }, "fast");
   const replyLines = extractReplyLines(rawContent, request.desiredReplyLineCount);
 
   if (emittedLines.length === 0) {
@@ -459,6 +539,43 @@ export async function streamTaReply(
     reply: replyLines,
     source: "llm"
   };
+}
+
+async function rewritePollution(payload: PollutionRewriteRequest): Promise<PollutionRewriteResponse | null> {
+  if (!isFastEnabled()) {
+    return null;
+  }
+
+  const prompt = buildPollutionRewriteMessages(payload);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 160);
+
+  try {
+  const rawContent = await requestChatCompletion([
+    {
+      role: "system",
+      content: prompt.system
+    },
+    {
+      role: "user",
+      content: prompt.user
+    }
+  ], {
+    temperature: 0.35,
+    maxTokens: 24,
+    signal: controller.signal
+  }, "fast");
+
+  const pollutedText = sanitizeReplyLine(rawContent.split(/\r?\n/).find((line) => line.trim()) ?? rawContent);
+
+  if (!pollutedText) {
+    throw new Error("Fast pollution rewrite returned empty content.");
+  }
+
+  return { pollutedText };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function loveTranslate(
@@ -516,7 +633,9 @@ async function shareLine(payload: ShareLineRequest): Promise<ShareLineResponse |
 
 export const llmClient = {
   isEnabled,
+  isFastEnabled,
   taReply: generateTaReply,
+  rewritePollution,
   loveTranslate,
   shareLine,
 };

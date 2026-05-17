@@ -39,6 +39,24 @@ export interface TaReplyResponse {
   source: "llm" | "fallback";
 }
 
+export interface PollutionRewriteRequest {
+  userInput: string;
+  stage: string;
+  triggerReason?: string;
+  triggerKeyword?: string;
+  taPronoun?: string | null;
+  pollutionCount: number;
+  sendCount: number;
+  recentMessages?: Array<{
+    role: "user" | "ta" | "system";
+    text: string;
+  }>;
+}
+
+export interface PollutionRewriteResponse {
+  pollutedText: string;
+}
+
 export interface ShareLineRequest {
   endingType: string;
   hardestSentence: string;

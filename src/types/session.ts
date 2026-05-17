@@ -6,7 +6,16 @@ export interface ChatMessage {
   role: "user" | "ta" | "system";
   originalText?: string;
   displayedText: string;
-  kind?: "normal" | "polluted" | "warning" | "glitch" | "space_notice" | "location_notice" | "pending";
+  mediaUrl?: string;
+  kind?:
+    | "normal"
+    | "polluted"
+    | "warning"
+    | "glitch"
+    | "space_notice"
+    | "location_notice"
+    | "monitor_image"
+    | "pending";
   timestamp: number;
 }
 
@@ -71,13 +80,14 @@ function createId() {
 export function createChatMessage(
   role: ChatMessage["role"],
   displayedText: string,
-  options: Partial<Pick<ChatMessage, "originalText" | "kind">> = {},
+  options: Partial<Pick<ChatMessage, "originalText" | "kind" | "mediaUrl">> = {},
 ): ChatMessage {
   return {
     id: createId(),
     role,
     displayedText,
     originalText: options.originalText,
+    mediaUrl: options.mediaUrl,
     kind: options.kind ?? "normal",
     timestamp: Date.now(),
   };
@@ -105,4 +115,16 @@ export function createEmptySession(): SessionState {
     endingType: null,
     hardestSentence: "",
   };
+}
+
+export function countNarrativeConversationMessages(messages: ChatMessage[]): number {
+  return messages.filter((message) => message.role !== "system" && message.kind !== "pending").length;
+}
+
+export function isLlmContextMessage(message: ChatMessage): boolean {
+  if (message.role === "system") {
+    return false;
+  }
+
+  return !["space_notice", "location_notice", "monitor_image", "pending"].includes(message.kind ?? "normal");
 }

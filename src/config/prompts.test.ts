@@ -44,4 +44,34 @@ describe("buildTaReplyPrompt", () => {
     expect(prompt.system).toContain("接管了“回退”本身");
     expect(prompt.user).toContain("出口已被你接管");
   });
+
+  it("会明确要求优先回应最后一句实际发出的文本", () => {
+    const prompt = buildTaReplyPrompt(createRequest(0));
+
+    expect(prompt.user).toContain("真正要回应的对象");
+    expect(prompt.user).toContain("优先回答最后一句");
+    expect(prompt.user).toContain("不要突然跳去聊别的机制");
+  });
+
+  it("第 5 轮后但未进入最终段时，仍保持失控恋人风格", () => {
+    const prompt = buildTaReplyPrompt({
+      ...createRequest(0),
+      stage: "normal_chat",
+      sendCount: 5,
+    });
+
+    expect(prompt.user).toContain("更变态、更不讲理、更贴脸");
+    expect(prompt.user).toContain("像恋人失控的感觉");
+  });
+
+  it("最终段会切到非人类恐怖角色风格", () => {
+    const prompt = buildTaReplyPrompt({
+      ...createRequest(0),
+      stage: "meta_break",
+      sendCount: 5,
+    });
+
+    expect(prompt.user).toContain("非人类存在");
+    expect(prompt.user).toContain("恐怖东西聊天");
+  });
 });
