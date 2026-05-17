@@ -6,10 +6,10 @@ const locationImageUrl = new URL("../../../c57832db96fa00de7e7da50eb070bd31.png"
 
 const styles: Record<string, CSSProperties> = {
   page: {
-    minHeight: "100vh",
+    minHeight: "100dvh",
     display: "grid",
     placeItems: "center",
-    padding: 24,
+    padding: "clamp(12px, 4vw, 24px)",
     background: "radial-gradient(circle at top, rgba(149, 236, 105, 0.12), transparent 35%), #090909",
     color: "#f4f4f4",
   },
@@ -24,9 +24,9 @@ const styles: Record<string, CSSProperties> = {
   },
   locationFrame: {
     position: "relative",
-    minHeight: 520,
+    minHeight: "min(520px, 58dvh)",
     overflow: "hidden",
-    borderRadius: 28,
+    borderRadius: "clamp(18px, 4vw, 28px)",
     background: "linear-gradient(180deg, rgba(12, 12, 12, 0.06), rgba(12, 12, 12, 0.22))",
     border: "1px solid rgba(255, 255, 255, 0.08)",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
@@ -35,7 +35,7 @@ const styles: Record<string, CSSProperties> = {
     display: "block",
     width: "100%",
     height: "100%",
-    minHeight: 520,
+    minHeight: "min(520px, 58dvh)",
     objectFit: "cover",
   },
   imageShade: {

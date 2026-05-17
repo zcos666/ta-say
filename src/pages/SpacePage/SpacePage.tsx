@@ -106,6 +106,14 @@ export function SpacePage() {
               <p className="space-cover-eyebrow">微信朋友圈 / 亮白版动态流</p>
               <h1 className="space-cover-title">{zoneTitle}</h1>
               <p className="space-cover-subtitle">第 {session.spaceVisitCount} 次进入这里以后，朋友圈开始越来越像你自己的心事。</p>
+              <div className="space-cover-actions">
+                <button className="button-primary" type="button" onClick={() => navigate("/chat")}>
+                  回到聊天
+                </button>
+                <button className="button-secondary" type="button" onClick={() => navigate("/")}>
+                  返回开始页
+                </button>
+              </div>
             </div>
             <div className="space-profile-chip">
               <span className="space-profile-name">{session.spaceVisitCount >= 2 ? "用户" : "宝宝"}</span>

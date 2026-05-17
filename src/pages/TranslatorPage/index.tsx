@@ -9,8 +9,8 @@ import {
 
 const pageStyles: Record<string, CSSProperties> = {
   page: {
-    minHeight: "100vh",
-    padding: "40px 20px 64px",
+    minHeight: "100dvh",
+    padding: "clamp(16px, 4vw, 40px) clamp(14px, 4vw, 20px) calc(32px + env(safe-area-inset-bottom))",
     background:
       "radial-gradient(circle at 12% 0%, rgba(107, 44, 55, 0.12), transparent 22%), radial-gradient(circle at 100% 100%, rgba(23, 18, 21, 0.08), transparent 28%), linear-gradient(180deg, rgba(20, 26, 22, 0.08), transparent 260px), #ecefee",
     color: "#1f1f1f",
@@ -19,14 +19,14 @@ const pageStyles: Record<string, CSSProperties> = {
     width: "min(1120px, 100%)",
     margin: "0 auto",
     display: "grid",
-    gap: 28,
+    gap: "clamp(18px, 3vw, 28px)",
     position: "relative",
   },
   hero: {
     display: "grid",
     gap: 14,
-    padding: "26px 24px 24px",
-    borderRadius: 28,
+    padding: "clamp(18px, 4vw, 26px)",
+    borderRadius: "clamp(20px, 4vw, 28px)",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(248,243,245,0.84) 100%)",
     border: "1px solid rgba(160, 133, 142, 0.28)",
@@ -101,13 +101,14 @@ const pageStyles: Record<string, CSSProperties> = {
   grid: {
     display: "grid",
     gap: 24,
-    gridTemplateColumns: "minmax(0, 430px) minmax(0, 1fr)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+    alignItems: "start",
   },
   panel: {
     display: "grid",
     gap: 20,
-    padding: 24,
-    borderRadius: 28,
+    padding: "clamp(18px, 4vw, 24px)",
+    borderRadius: "clamp(20px, 4vw, 28px)",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,244,245,0.96) 100%)",
     border: "1px solid rgba(171, 148, 155, 0.2)",
@@ -127,8 +128,8 @@ const pageStyles: Record<string, CSSProperties> = {
   field: {
     display: "grid",
     gap: 10,
-    padding: 16,
-    borderRadius: 20,
+    padding: "clamp(14px, 3vw, 16px)",
+    borderRadius: "clamp(16px, 3vw, 20px)",
     background:
       "linear-gradient(180deg, rgba(250,249,249,0.98) 0%, rgba(245,242,244,0.96) 100%)",
     border: "1px solid rgba(183, 171, 176, 0.18)",
@@ -162,9 +163,9 @@ const pageStyles: Record<string, CSSProperties> = {
     fontSize: 13,
   },
   textarea: {
-    minHeight: 144,
+    minHeight: "clamp(132px, 24vh, 180px)",
     resize: "vertical",
-    borderRadius: 18,
+    borderRadius: "clamp(14px, 3vw, 18px)",
     border: "1px solid rgba(162, 143, 151, 0.24)",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,245,246,0.98) 100%)",
@@ -198,6 +199,7 @@ const pageStyles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
   },
   primaryButton: {
+    flex: "1 1 180px",
     padding: "12px 18px",
     borderRadius: 14,
     border: "1px solid rgba(121, 86, 97, 0.22)",
@@ -209,6 +211,7 @@ const pageStyles: Record<string, CSSProperties> = {
     boxShadow: "0 12px 24px rgba(121, 86, 97, 0.22)",
   },
   secondaryButton: {
+    flex: "1 1 160px",
     padding: "12px 18px",
     borderRadius: 14,
     border: "1px solid rgba(214, 220, 214, 0.96)",
@@ -223,8 +226,8 @@ const pageStyles: Record<string, CSSProperties> = {
     alignContent: "start",
   },
   helperCard: {
-    padding: 18,
-    borderRadius: 22,
+    padding: "clamp(16px, 3vw, 18px)",
+    borderRadius: "clamp(18px, 3vw, 22px)",
     background:
       "linear-gradient(180deg, rgba(34,27,31,0.96) 0%, rgba(53,39,45,0.96) 100%)",
     border: "1px solid rgba(107, 44, 55, 0.22)",
@@ -246,8 +249,8 @@ const pageStyles: Record<string, CSSProperties> = {
   resultWindow: {
     display: "grid",
     gap: 12,
-    padding: 18,
-    borderRadius: 22,
+    padding: "clamp(16px, 3vw, 18px)",
+    borderRadius: "clamp(18px, 3vw, 22px)",
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(247,241,243,0.96) 100%)",
     border: "1px solid rgba(107, 44, 55, 0.2)",

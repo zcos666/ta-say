@@ -8,8 +8,8 @@ import { shareCardComposer } from "../../features/share-card";
 
 const pageStyles = {
   shell: {
-    minHeight: "100vh",
-    padding: "40px 20px 56px",
+    minHeight: "100dvh",
+    padding: "clamp(16px, 4vw, 40px) clamp(14px, 4vw, 20px) calc(28px + env(safe-area-inset-bottom))",
     background:
       "radial-gradient(circle at top right, rgba(107, 44, 55, 0.09), transparent 24%), linear-gradient(180deg, rgba(20, 26, 22, 0.04), transparent 260px), #eef1ee",
     color: "#1f1f1f",
@@ -21,15 +21,15 @@ const pageStyles = {
     maxWidth: "1120px",
     margin: "0 auto",
     display: "grid",
-    gridTemplateColumns: "minmax(320px, 380px) minmax(0, 1fr)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
     alignItems: "start",
-    gap: "24px",
+    gap: "clamp(16px, 3vw, 24px)",
   } satisfies CSSProperties,
   intro: {
     display: "grid",
     gap: "20px",
-    padding: "26px 24px 24px",
-    borderRadius: "28px",
+    padding: "clamp(18px, 4vw, 26px)",
+    borderRadius: "clamp(20px, 4vw, 28px)",
     background: "rgba(255, 255, 255, 0.84)",
     border: "1px solid rgba(214, 220, 214, 0.92)",
     boxShadow: "0 18px 44px rgba(24, 31, 24, 0.08)",
@@ -37,7 +37,7 @@ const pageStyles = {
   } satisfies CSSProperties,
   title: {
     margin: 0,
-    fontSize: "48px",
+    fontSize: "clamp(32px, 7vw, 48px)",
     lineHeight: 1.05,
     letterSpacing: "-0.04em",
   } satisfies CSSProperties,
@@ -66,6 +66,7 @@ const pageStyles = {
     border: 0,
     borderRadius: "14px",
     padding: "14px 20px",
+    flex: "1 1 180px",
     background: "linear-gradient(180deg, #8b6673 0%, #714f5b 100%)",
     color: "#fffafc",
     fontSize: "15px",
@@ -76,6 +77,7 @@ const pageStyles = {
   secondaryButton: {
     borderRadius: "14px",
     padding: "14px 20px",
+    flex: "1 1 180px",
     border: "1px solid rgba(214, 220, 214, 0.96)",
     background: "rgba(255, 255, 255, 0.96)",
     color: "#1f1f1f",
@@ -89,7 +91,7 @@ const pageStyles = {
   } satisfies CSSProperties,
   previewWrap: {
     display: "grid",
-    justifyItems: "start",
+    justifyItems: "center",
   } satisfies CSSProperties,
 } as const;
 
